@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover" />
   <title>Chess vs krisper (1102)</title>
 
   <!-- chessboard.js (requires jQuery) -->
@@ -54,11 +54,15 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       background:var(--bg);
       color:var(--text);
-      height:100vh;
       overflow:hidden;
     }
 
-    /* ---- DESKTOP LAYOUT (one full viewport) ---- */
+    /* iOS safe area helper */
+    .safePad{
+      padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    }
+
+    /* ---- DESKTOP (one viewport) ---- */
     .app{
       height:100vh;
       width:min(1240px, 100%);
@@ -174,7 +178,7 @@
       pointer-events:none;
     }
 
-    /* ---- RIGHT SIDEBAR aligned to left ---- */
+    /* ---- RIGHT SIDEBAR ---- */
     .side{
       height:calc(100vh - 36px);
       display:flex;
@@ -378,20 +382,20 @@
     }
     .modalActions .btn{ flex:0 0 auto; min-width:120px; }
 
-    /* ---- MOBILE: no sidebar, menu button bottom-right, avoid covering bottom bar ---- */
+    /* ---- MOBILE ---- */
     .mobileMenuBtn, .mobileSheetBackdrop { display:none; }
 
     @media (max-width: 980px){
       .app{
         width:100%;
-        height:100vh;
+        height:100dvh;             /* fixes iPhone Chrome URL bar resizing */
         grid-template-columns: 1fr;
         gap:10px;
         padding:12px;
       }
       .side{ display:none; }
 
-      .left{ height:calc(100vh - 24px); }
+      .left{ height:calc(100dvh - 24px); }
 
       #board{
         width:100%;
@@ -399,15 +403,17 @@
         aspect-ratio:1/1;
       }
 
-      /* push bottom captured bar up so it's not obstructed */
-      #capturedBottom{ margin-bottom:76px; }
+      /* Move bottom bar up by button + safe area so it never gets covered */
+      #capturedBottom{
+        margin-bottom: calc(14px + 52px + 14px + max(env(safe-area-inset-bottom), 0px));
+      }
 
-      /* Mobile menu button */
+      /* Mobile menu button pinned inside viewport (safe-area aware) */
       .mobileMenuBtn{
         display:block;
         position:fixed;
         right:14px;
-        bottom:14px;
+        bottom: calc(14px + max(env(safe-area-inset-bottom), 0px));
         width:52px;
         height:52px;
         border-radius:14px;
@@ -478,7 +484,7 @@
   </style>
 </head>
 
-<body>
+<body class="safePad">
   <div class="app">
     <!-- LEFT -->
     <section class="left">
@@ -495,14 +501,12 @@
         </div>
       </div>
 
-      <!-- Captured pieces TOP (swapped logic kept) -->
       <div class="capturedStrip" id="capturedTop"><span class="empty">Captured: —</span></div>
 
       <div class="boardWrap">
         <div id="board"></div>
       </div>
 
-      <!-- Captured pieces BOTTOM (swapped logic kept) -->
       <div class="capturedStrip" id="capturedBottom"><span class="empty">Lost: —</span></div>
     </section>
 
@@ -533,7 +537,7 @@
     </aside>
   </div>
 
-  <!-- MOBILE hamburger button -->
+  <!-- MOBILE menu button -->
   <button class="mobileMenuBtn" id="mobileMenuBtn" aria-label="Menu">
     <div class="bars" aria-hidden="true"><span></span><span></span><span></span></div>
   </button>
@@ -607,8 +611,6 @@
     chatEl.appendChild(div);
     chatEl.scrollTop = chatEl.scrollHeight;
   }
-
-  // Random helper
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   // Modals
@@ -648,72 +650,122 @@
   let engineReady = false;
   let engineThinking = false;
 
-  // Eval tracking (centipawns from BOT perspective, higher = better for bot)
+  // Eval tracking (centipawns from BOT perspective)
   let lastBotEvalCp = null;
-  let awaitingEvalTag = null; // "pre" | "post" | etc. (light guard)
+
+  // Threshold crossing tracking (only speak when crossing)
+  // We track absolute eval "advantage" thresholds 50/100/200 for bot
+  // and also use delta (single-move) bands as requested.
+  const TH = [50, 100, 200];
+  let lastBandAbs = 0; // 0..3 where bandAbs = count of thresholds exceeded by |eval|
+  let lastSignAbs = 0; // -1 / 0 / +1 sign of eval (bot ahead/behind)
 
   // Parse score lines
   function parseScoreFromInfo(line){
-    // Examples:
-    // "info depth 12 ... score cp 34 ..."
-    // "info depth 18 ... score mate -3 ..."
     const mCp = line.match(/\bscore\s+cp\s+(-?\d+)\b/);
     if (mCp) return { type:"cp", value: parseInt(mCp[1], 10) };
-
     const mMate = line.match(/\bscore\s+mate\s+(-?\d+)\b/);
     if (mMate) return { type:"mate", value: parseInt(mMate[1], 10) };
-
     return null;
   }
 
-  // Stockfish score is from side-to-move. Convert to BOT perspective.
+  // Convert Stockfish (side-to-move) cp to BOT perspective cp
   function toBotPerspectiveCp(cp, sideToMove){
-    // if sideToMove is botColor, score already from bot side; otherwise invert
     return (sideToMove === engineColor) ? cp : -cp;
   }
 
-  // Speak based on delta in centipawns (bot gained/lost)
-  function speakDelta(deltaCp){
-    // deltaCp = newBotEvalCp - lastBotEvalCp
-    if (deltaCp <= -150) addBubble(pick(["Uh oh.", "@@@"]), "bot");
-    else if (deltaCp < -50) addBubble(pick(["Ah, I missed that.", "That's plum wild."]), "bot");
-    else if (deltaCp < -20) addBubble(pick(["Oops.", "..."]), "bot");
-    else if (deltaCp > 150) addBubble(pick(["Good luck, champ.", "You may as well resign now."]), "bot");
-    else if (deltaCp > 50) addBubble(pick(["This is starting to look good.", "Ha!"]), "bot");
-    else if (deltaCp > 20) addBubble(pick(["You're gonna want to study that one later.", "Oof."]), "bot");
-    // else no message
+  function evalToAbsBand(botCp){
+    const a = Math.abs(botCp);
+    let band = 0;
+    if (a >= 50) band = 1;
+    if (a >= 100) band = 2;
+    if (a >= 200) band = 3;
+    return band;
   }
 
-  function speakGameState(afterMoveByColor){
-    // afterMoveByColor: "w" or "b" who just moved
+  function signOf(x){
+    if (x > 0) return 1;
+    if (x < 0) return -1;
+    return 0;
+  }
+
+  // Speak based on SINGLE-MOVE delta bands (your mapping)
+  function speakDeltaBand(deltaCp){
+    // deltaCp = newBotEvalCp - oldBotEvalCp
+    if (deltaCp <= -200) addBubble(pick(["Uh oh.", "@@@"]), "bot");
+    else if (deltaCp < -100) addBubble(pick(["Ah, I missed that.", "That's plum wild."]), "bot");
+    else if (deltaCp < -50) addBubble(pick(["Oops.", "..."]), "bot");
+    else if (deltaCp >= 200) addBubble(pick(["Good luck, champ.", "You may as well resign now."]), "bot");
+    else if (deltaCp > 100) addBubble(pick(["This is starting to look good.", "Ha!"]), "bot");
+    else if (deltaCp > 50) addBubble(pick(["You're gonna want to study that one later.", "Oof."]), "bot");
+  }
+
+  // Speak ONLY when eval passes a threshold 50/100/200 (either direction)
+  // We do NOT spam; we only fire on crossing events.
+  function handleThresholdCrossing(newBotCp){
+    const newBand = evalToAbsBand(newBotCp);
+    const newSign = signOf(newBotCp);
+
+    // If sign changed (bot went from ahead to behind or vice versa),
+    // treat as a "crossing" event at the lowest band if magnitude meaningful.
+    const signChanged = (lastSignAbs !== 0 && newSign !== 0 && newSign !== lastSignAbs);
+
+    // Crossing: magnitude band changes OR sign flips
+    if (newBand !== lastBandAbs || signChanged) {
+      // We don't output a separate "threshold phrase" here; instead
+      // we allow your delta-based phrases to represent the "reaction"
+      // and keep threshold-crossing as the gating mechanism.
+      // So: just return true/false to allow delta speak.
+      lastBandAbs = newBand;
+      lastSignAbs = newSign;
+      return true;
+    }
+    return false;
+  }
+
+  // Check / mate / stalemate phrases per your latest rules
+  function speakChecksAndEnds(afterMoveByColor){
+    // afterMoveByColor: who just moved ("w"/"b")
     if (game.in_checkmate()){
-      // side to move is checkmated
-      const mated = game.turn(); // player to move but cannot
-      if (mated === engineColor) addBubble("You're alright.", "bot");
-      else addBubble("Get rekt.", "bot");
+      const mated = game.turn(); // side to move is checkmated
+      if (mated === engineColor) {
+        // bot got checkmated => player says "Checkmate."
+        addBubble("Checkmate.", "you");
+      } else {
+        // player got checkmated => bot says
+        addBubble("Get rekt.", "bot");
+      }
       return;
     }
+
     if (game.in_stalemate()){
       addBubble("Good game.", "bot");
       return;
     }
+
     if (game.in_check()){
-      // side to move is in check
-      const inCheck = game.turn();
-      if (inCheck === engineColor) addBubble("Check.", "bot");
-      else addBubble("Check, mate.", "bot");
+      const inCheck = game.turn(); // side to move is in check
+      if (inCheck === engineColor) {
+        // bot in check => player says "Check."
+        addBubble("Check.", "you");
+      } else {
+        // player in check => bot says "Check, m8."
+        addBubble("Check, m8.", "bot");
+      }
     }
   }
 
-  function requestEval(tag){
-    if (!engineReady) return;
-    // If engine is currently thinking a move, don't interrupt.
-    if (engineThinking) return;
+  // Evaluation request/collection
+  let awaitingEval = false;
+  let evalLatestDuringSearch = null;
 
-    awaitingEvalTag = tag;
+  function requestEval(){
+    if (!engineReady) return;
+    if (engineThinking) return; // don't interrupt move search
+    awaitingEval = true;
+    evalLatestDuringSearch = null;
 
     sf.postMessage("position fen " + game.fen());
-    // quick eval; adjust if you want more stable numbers
     sf.postMessage("go movetime 180");
   }
 
@@ -735,31 +787,21 @@
     if (line === "readyok") {
       engineReady = true;
       addBubble("Let's play.", "bot");
-      // establish a baseline eval for the starting position once a game begins
       return;
     }
 
-    // Capture evaluation lines (for our eval-only search)
     if (typeof line === "string" && line.startsWith("info ")) {
       const s = parseScoreFromInfo(line);
       if (!s) return;
 
-      // mate scores: treat as huge cp for delta purposes (direction matters)
       let cp;
       if (s.type === "cp") cp = s.value;
-      else {
-        // mate value from side-to-move perspective
-        // mate +N means side-to-move mates in N => big advantage
-        // mate -N means side-to-move gets mated => big disadvantage
-        cp = (s.value > 0) ? 100000 : -100000;
-      }
+      else cp = (s.value > 0) ? 100000 : -100000;
 
       const botCp = toBotPerspectiveCp(cp, game.turn());
 
-      // We only update baseline or speak when we explicitly asked for eval
-      if (awaitingEvalTag) {
-        // store latest; we will finalize on bestmove (end of search)
-        window.__lastEvalDuringSearch = botCp;
+      if (awaitingEval) {
+        evalLatestDuringSearch = botCp;
       }
       return;
     }
@@ -767,45 +809,55 @@
     if (typeof line === "string" && line.startsWith("bestmove ")) {
       const uci = line.split(" ")[1];
 
-      // If this bestmove belongs to our eval-only search, it'll still output bestmove,
-      // but we should NOT apply it unless we are in engineThinking mode.
-      if (!engineThinking) {
-        const newEval = (typeof window.__lastEvalDuringSearch === "number") ? window.__lastEvalDuringSearch : null;
+      // Eval-only search finished
+      if (!engineThinking && awaitingEval) {
+        awaitingEval = false;
 
-        if (newEval !== null && lastBotEvalCp !== null) {
-          const delta = newEval - lastBotEvalCp;
-          speakDelta(delta);
+        if (typeof evalLatestDuringSearch === "number") {
+          const newEval = evalLatestDuringSearch;
+
+          if (typeof lastBotEvalCp === "number") {
+            const delta = newEval - lastBotEvalCp;
+
+            // Gate speaking: only speak delta phrases when we crossed a threshold (50/100/200)
+            // since last time.
+            const crossed = handleThresholdCrossing(newEval);
+            if (crossed) speakDeltaBand(delta);
+          } else {
+            // Initialize baseline bands without speaking
+            lastBandAbs = evalToAbsBand(newEval);
+            lastSignAbs = signOf(newEval);
+          }
+
+          lastBotEvalCp = newEval;
         }
-
-        if (newEval !== null) lastBotEvalCp = newEval;
-
-        awaitingEvalTag = null;
-        window.__lastEvalDuringSearch = undefined;
         return;
       }
 
-      // Otherwise it's the engine's actual move calculation
-      engineThinking = false;
-      if (newGameBtn) newGameBtn.disabled = false;
+      // Engine move search finished
+      if (engineThinking) {
+        engineThinking = false;
+        if (newGameBtn) newGameBtn.disabled = false;
 
-      if (uci && uci !== "(none)") {
-        const beforeCaptures = game.history({ verbose:true }).filter(m => m.captured).length;
+        if (uci && uci !== "(none)") {
+          const beforeCaptures = game.history({ verbose:true }).filter(m => m.captured).length;
 
-        applyEngineMove(uci);
+          applyEngineMove(uci);
 
-        const afterCaptures = game.history({ verbose:true }).filter(m => m.captured).length;
-        if (afterCaptures > beforeCaptures) addBubble("ha!", "bot"); // capture taunt
+          const afterCaptures = game.history({ verbose:true }).filter(m => m.captured).length;
+          if (afterCaptures > beforeCaptures) addBubble("ha!", "bot");
 
-        renderMoves();
-        renderCaptured();
+          renderMoves();
+          renderCaptured();
 
-        // checks/mates/stalemate messaging after engine move
-        speakGameState(engineColor);
+          // checks/mates/stalemate
+          speakChecksAndEnds(engineColor);
 
-        if (!game.game_over()) addBubble("Your move.", "bot");
+          if (!game.game_over()) addBubble("Your move.", "bot");
 
-        // refresh baseline eval after engine move (quietly)
-        requestEval("postEngine");
+          // Update baseline after engine move (quiet, gated)
+          requestEval();
+        }
       }
     }
   };
@@ -839,7 +891,6 @@
   function clearMoveDots(){
     document.querySelectorAll("#board .lmDot").forEach(el => el.remove());
   }
-
   function showLegalMoveDots(square){
     clearMoveDots();
     const moves = game.moves({ square, verbose: true });
@@ -889,8 +940,6 @@
   }
 
   // Captured pieces: SWAPPED per your rule
-  // White's captures show on black side (bottom strip)
-  // Black's captures show on white side (top strip)
   function renderCaptured(){
     const verbose = game.history({ verbose:true });
     const capturedByWhite = [];
@@ -924,6 +973,8 @@
       }
     };
 
+    // top: black captures (white pieces)
+    // bottom: white captures (black pieces)
     paint(capturedTopEl, capturedByBlack, "w", "Captured: —");
     paint(capturedBottomEl, capturedByWhite, "b", "Lost: —");
   }
@@ -937,8 +988,10 @@
     gameStarted = false;
 
     lastBotEvalCp = null;
-    awaitingEvalTag = null;
-    window.__lastEvalDuringSearch = undefined;
+    lastBandAbs = 0;
+    lastSignAbs = 0;
+    awaitingEval = false;
+    evalLatestDuringSearch = null;
 
     renderMoves();
     renderCaptured();
@@ -955,10 +1008,9 @@
     board.orientation(playerColor === "w" ? "white" : "black");
     addBubble("You are playing " + (playerColor === "w" ? "White." : "Black."), "bot");
 
-    // Establish initial eval baseline
-    setTimeout(() => requestEval("baseline"), 50);
+    // baseline eval (no talking)
+    setTimeout(() => requestEval(), 60);
 
-    // If engine moves first
     if (engineReady && game.turn() === engineColor) requestEngineMove();
   }
 
@@ -1001,12 +1053,11 @@
       const afterCaptures = game.history({ verbose:true }).filter(m => m.captured).length;
       if (afterCaptures > beforeCaptures) addBubble("oof", "bot");
 
-      // checks/mates/stalemate messaging after PLAYER move
-      speakGameState(playerColor);
+      // checks/mates/stalemate rules
+      speakChecksAndEnds(playerColor);
 
-      // After player's move, run a quick eval to decide the reaction lines
-      // (then engine will think/move)
-      requestEval("postPlayer");
+      // Update eval after player's move (gated by threshold crossing)
+      requestEval();
 
       setTimeout(requestEngineMove, 60);
     },
@@ -1014,44 +1065,45 @@
     onSnapEnd: () => board.position(game.fen())
   });
 
-  // Buttons (desktop)
+  // Buttons
   function openNewGame(){ openModal(sideModal); }
   function openResign(){ if (!gameStarted) return; openModal(resignModal); }
+
+  // Modals
+  const sideModalEl = document.getElementById("sideModal");
+  const resignModalEl = document.getElementById("resignModal");
+  const playWhiteBtnEl = document.getElementById("playWhiteBtn");
+  const playBlackBtnEl = document.getElementById("playBlackBtn");
 
   if (newGameBtn) newGameBtn.addEventListener("click", openNewGame);
   if (flipBtn) flipBtn.addEventListener("click", () => board.flip());
   if (resignBtn) resignBtn.addEventListener("click", openResign);
 
-  // Buttons (mobile sheet)
   mNewGameBtn.addEventListener("click", () => { closeSheet(); openNewGame(); });
   mFlipBtn.addEventListener("click", () => { closeSheet(); board.flip(); });
   mResignBtn.addEventListener("click", () => { closeSheet(); openResign(); });
 
-  // Side modal actions
-  playWhiteBtn.addEventListener("click", () => { closeModal(sideModal); startNewGame("w"); });
-  playBlackBtn.addEventListener("click", () => { closeModal(sideModal); startNewGame("b"); });
+  playWhiteBtnEl.addEventListener("click", () => { closeModal(sideModalEl); startNewGame("w"); });
+  playBlackBtnEl.addEventListener("click", () => { closeModal(sideModalEl); startNewGame("b"); });
 
-  document.querySelectorAll("[data-close-side]").forEach(btn => btn.addEventListener("click", () => closeModal(sideModal)));
-  document.querySelectorAll("[data-close-resign]").forEach(btn => btn.addEventListener("click", () => closeModal(resignModal)));
+  document.querySelectorAll("[data-close-side]").forEach(btn => btn.addEventListener("click", () => closeModal(sideModalEl)));
+  document.querySelectorAll("[data-close-resign]").forEach(btn => btn.addEventListener("click", () => closeModal(resignModalEl)));
 
-  // Resign modal actions
-  resignNoBtn.addEventListener("click", () => closeModal(resignModal));
+  resignNoBtn.addEventListener("click", () => closeModal(resignModalEl));
   resignYesBtn.addEventListener("click", () => {
-    closeModal(resignModal);
+    closeModal(resignModalEl);
     addBubble("You resigned.", "you");
     resetToMain();
   });
 
-  // Click outside modal to close
-  sideModal.addEventListener("click", (e) => { if (e.target === sideModal) closeModal(sideModal); });
-  resignModal.addEventListener("click", (e) => { if (e.target === resignModal) closeModal(resignModal); });
+  sideModalEl.addEventListener("click", (e) => { if (e.target === sideModalEl) closeModal(sideModalEl); });
+  resignModalEl.addEventListener("click", (e) => { if (e.target === resignModalEl) closeModal(resignModalEl); });
 
   // Initial
   renderMoves();
   renderCaptured();
   addBubble("Press New Game to begin.", "bot");
 
-  // Keep board sized correctly
   window.addEventListener("resize", () => board.resize());
   setTimeout(() => board.resize(), 250);
 </script>
