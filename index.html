@@ -14,7 +14,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 
   <!-- Stockfish (single-thread build; works on GitHub Pages) -->
-  <!-- Put this file in the SAME folder as index.html: /chess/stockfish10.js -->
   <script>
     fetch("/chess/stockfish10.js?v=999")
       .then(r => r.text())
@@ -55,27 +54,31 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       background:var(--bg);
       color:var(--text);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
+      height:100vh;
+      overflow:hidden; /* one viewport on desktop */
     }
 
+    /* ---- DESKTOP LAYOUT (one full viewport) ---- */
     .app{
-      width:min(1200px, 100%);
+      height:100vh;
+      width:min(1240px, 100%);
+      margin:0 auto;
       display:grid;
       grid-template-columns: 1fr 360px;
       gap:16px;
+      padding:18px;
       align-items:start;
     }
 
-    /* LEFT */
     .left{
+      height:calc(100vh - 36px); /* padding top+bottom */
       display:flex;
       flex-direction:column;
       gap:10px;
+      min-width:0;
     }
 
+    /* top bar */
     .playerBar{
       background:var(--panel);
       border:1px solid var(--line);
@@ -86,6 +89,7 @@
       justify-content:space-between;
       gap:12px;
       min-height:56px;
+      flex:0 0 auto;
     }
 
     .playerMeta{
@@ -107,21 +111,14 @@
       flex:0 0 auto;
       overflow:hidden;
     }
-
-    /* Optional avatar image inside the avatar square */
-    .avatar img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-      display:block;
-    }
+    .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
 
     .names{
       line-height:1.1;
       min-width:0;
     }
     .names .name{
-      font-weight:700;
+      font-weight:800;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -136,6 +133,7 @@
     }
     .flag{ font-size:14px; opacity:.95; }
 
+    /* captured strips */
     .capturedStrip{
       background:var(--panel);
       border:1px solid var(--line);
@@ -146,43 +144,42 @@
       align-items:center;
       min-height:40px;
       overflow:hidden;
+      flex:0 0 auto;
     }
-    .capturedStrip img{
-      width:22px;
-      height:22px;
-      display:block;
-      opacity:.95;
-    }
-    .capturedStrip .empty{
-      color:var(--muted);
-      font-size:12px;
-    }
+    .capturedStrip img{ width:22px; height:22px; display:block; opacity:.95; }
+    .capturedStrip .empty{ color:var(--muted); font-size:12px; }
 
+    /* board fills remaining height */
     .boardWrap{
+      flex:1 1 auto;
+      min-height:0;
       display:flex;
-      justify-content:center;
       align-items:center;
+      justify-content:center;
+      background:transparent;
     }
 
     #board{
-      width:min(74vmin, 760px);
+      /* keep it square + fit the remaining column space */
+      width:min(100%, calc(100vh - 56px - 40px - 40px - 36px - 20px)); /* viewport minus bars/padding/gaps */
+      max-width:760px;
+      aspect-ratio:1 / 1;
       border-radius:var(--sq);
       overflow:hidden;
       border:1px solid var(--line);
     }
 
-    /* RIGHT */
+    /* ---- RIGHT SIDEBAR aligned to left content ---- */
     .side{
+      height:calc(100vh - 36px);
+      margin-top:0;            /* remove the old offset */
+      display:flex;
+      flex-direction:column;
       background:var(--panel);
       border:1px solid var(--line);
       border-radius:var(--sq);
       overflow:hidden;
-
-      /* move the right sidebar down */
-      margin-top:18px;
-
-      position:sticky;
-      top:16px;
+      min-width:0;
     }
 
     .sideTop{
@@ -191,26 +188,9 @@
       display:flex;
       flex-direction:column;
       gap:10px;
+      flex:0 0 auto;
     }
 
-    .status{
-      background:var(--panel2);
-      border:1px solid var(--line);
-      border-radius:var(--sq);
-      padding:10px 10px;
-      min-height:40px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      font-weight:700;
-    }
-    .status small{
-      font-weight:600;
-      color:var(--muted);
-    }
-
-    /* Bot avatar + chat area (chess.com-ish) */
     .chatHead{
       display:flex;
       align-items:center;
@@ -221,7 +201,7 @@
       min-width:0;
     }
     .chatHead .botInfo .name{
-      font-weight:800;
+      font-weight:900;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -235,6 +215,7 @@
       gap:8px;
     }
 
+    /* chat fills remaining height above buttons/moves */
     .chat{
       background:var(--panel2);
       border:1px solid var(--line);
@@ -243,9 +224,21 @@
       display:flex;
       flex-direction:column;
       gap:8px;
-      max-height:170px;
+      height:160px;
       overflow:auto;
     }
+
+    /* Modern transparent scrollbar */
+    .chat::-webkit-scrollbar{ width:10px; }
+    .chat::-webkit-scrollbar-track{ background:transparent; }
+    .chat::-webkit-scrollbar-thumb{
+      background:rgba(255,255,255,.16);
+      border:3px solid transparent;
+      background-clip:padding-box;
+      border-radius:999px;
+    }
+    .chat:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.22); }
+    .chat{ scrollbar-width:thin; scrollbar-color: rgba(255,255,255,.18) transparent; }
 
     .bubble{
       max-width:85%;
@@ -257,28 +250,35 @@
       font-size:13px;
       line-height:1.25;
     }
-    .bubble.bot{
-      align-self:flex-start;
-      background:rgba(255,255,255,.05);
-    }
-    .bubble.you{
-      align-self:flex-end;
-      background:rgba(255,255,255,.08);
-    }
+    .bubble.bot{ align-self:flex-start; background:rgba(255,255,255,.05); }
+    .bubble.you{ align-self:flex-end; background:rgba(255,255,255,.08); }
 
     .movesTitle{
       padding:10px 12px 0;
       color:var(--muted);
       font-size:12px;
       letter-spacing:.02em;
+      flex:0 0 auto;
     }
 
     .moves{
-      height:min(46vh, 470px);
+      flex:1 1 auto;
+      min-height:0;
       overflow:auto;
       padding:10px 12px;
       background:var(--panel);
     }
+
+    .moves::-webkit-scrollbar{ width:10px; }
+    .moves::-webkit-scrollbar-track{ background:transparent; }
+    .moves::-webkit-scrollbar-thumb{
+      background:rgba(255,255,255,.12);
+      border:3px solid transparent;
+      background-clip:padding-box;
+      border-radius:999px;
+    }
+    .moves:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.18); }
+    .moves{ scrollbar-width:thin; scrollbar-color: rgba(255,255,255,.14) transparent; }
 
     .moveRow{
       display:grid;
@@ -312,6 +312,7 @@
       flex-wrap:wrap;
       justify-content:space-between;
       background:var(--panel);
+      flex:0 0 auto;
     }
 
     .btn{
@@ -322,7 +323,7 @@
       padding:10px 12px;
       border-radius:var(--sq);
       cursor:pointer;
-      font-weight:800;
+      font-weight:900;
       flex:1 1 auto;
       min-width:110px;
     }
@@ -338,10 +339,7 @@
     /* chessboard.js square color override */
     .white-1e1d7{ background:var(--light) !important; }
     .black-3c85d{ background:var(--dark) !important; }
-
-    .highlight{
-      box-shadow: inset 0 0 0 4px rgba(255,255,255,.22);
-    }
+    .highlight{ box-shadow: inset 0 0 0 4px rgba(255,255,255,.22); }
 
     /* MODALS */
     .modalBackdrop{
@@ -372,10 +370,7 @@
       gap:10px;
       background:var(--panel);
     }
-    .modalTitle{
-      font-weight:900;
-      letter-spacing:.01em;
-    }
+    .modalTitle{ font-weight:900; letter-spacing:.01em; }
     .iconBtn{
       appearance:none;
       border:1px solid var(--line);
@@ -386,11 +381,7 @@
       cursor:pointer;
       font-weight:900;
     }
-    .modalBody{
-      padding:14px 12px;
-      color:var(--muted);
-      line-height:1.4;
-    }
+    .modalBody{ padding:14px 12px; color:var(--muted); line-height:1.4; }
     .modalActions{
       padding:12px;
       border-top:1px solid var(--line);
@@ -401,10 +392,102 @@
     }
     .modalActions .btn{ flex:0 0 auto; min-width:120px; }
 
+    /* ---- MOBILE: board + bars full viewport, no sidebar ---- */
+    .mobileMenuBtn, .mobileSheetBackdrop { display:none; }
+
     @media (max-width: 980px){
-      .app{ grid-template-columns: 1fr; }
-      .side{ position:relative; top:auto; margin-top:14px; }
-      #board{ width:min(92vmin, 760px); }
+      body{ overflow:hidden; }
+      .app{
+        width:100%;
+        height:100vh;
+        grid-template-columns: 1fr;
+        gap:10px;
+        padding:12px;
+      }
+      .side{ display:none; }
+
+      .left{
+        height:calc(100vh - 24px);
+      }
+
+      #board{
+        width:100%;
+        max-width:none;
+        aspect-ratio:1/1;
+      }
+
+      /* Mobile hamburger menu button (bottom-right) */
+      .mobileMenuBtn{
+        display:block;
+        position:fixed;
+        right:14px;
+        bottom:14px;
+        width:52px;
+        height:52px;
+        border-radius:14px;
+        border:1px solid var(--line);
+        background:rgba(0,0,0,.20);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        color:var(--text);
+        z-index:9998;
+        cursor:pointer;
+      }
+      .mobileMenuBtn .bars{
+        width:22px; height:14px;
+        margin:0 auto;
+        display:flex;
+        flex-direction:column;
+        justify-content:space-between;
+      }
+      .mobileMenuBtn .bars span{
+        display:block;
+        height:2px;
+        background:rgba(255,255,255,.75);
+        border-radius:999px;
+      }
+
+      /* Mobile bottom sheet */
+      .mobileSheetBackdrop{
+        display:none;
+        position:fixed;
+        inset:0;
+        background:rgba(0,0,0,.55);
+        z-index:9999;
+        align-items:flex-end;
+        justify-content:center;
+      }
+      .mobileSheetBackdrop.open{ display:flex; }
+
+      .mobileSheet{
+        width:100%;
+        max-width:520px;
+        background:var(--panel);
+        border:1px solid var(--line);
+        border-radius:14px 14px 0 0;
+        overflow:hidden;
+      }
+      .sheetGrab{
+        height:28px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        border-bottom:1px solid var(--line);
+        background:var(--panel);
+      }
+      .sheetGrab .pill{
+        width:56px;
+        height:5px;
+        border-radius:999px;
+        background:rgba(255,255,255,.18);
+      }
+      .sheetBtns{
+        padding:12px;
+        display:grid;
+        grid-template-columns: 1fr;
+        gap:10px;
+      }
+      .sheetBtns .btn{ width:100%; min-width:0; }
     }
   </style>
 </head>
@@ -413,12 +496,9 @@
   <div class="app">
     <!-- LEFT -->
     <section class="left">
-      <!-- TOP player (opponent/bot) -->
       <div class="playerBar">
         <div class="playerMeta">
-          <!-- You can swap this to an image by putting <img src="..."> inside -->
           <div class="avatar" aria-hidden="true" id="topBotAvatar">K</div>
-
           <div class="names">
             <div class="name" id="botName">krisper</div>
             <div class="elo">
@@ -429,25 +509,20 @@
         </div>
       </div>
 
-      <!-- Captured pieces TOP (SWAPPED LOGIC REQUESTED) -->
-      <div class="capturedStrip" id="capturedTop">
-        <span class="empty">Captured: —</span>
-      </div>
+      <!-- Captured pieces TOP (swapped logic kept) -->
+      <div class="capturedStrip" id="capturedTop"><span class="empty">Captured: —</span></div>
 
       <div class="boardWrap">
         <div id="board"></div>
       </div>
 
-      <!-- Captured pieces BOTTOM (SWAPPED LOGIC REQUESTED) -->
-      <div class="capturedStrip" id="capturedBottom">
-        <span class="empty">Lost: —</span>
-      </div>
+      <!-- Captured pieces BOTTOM (swapped logic kept) -->
+      <div class="capturedStrip" id="capturedBottom"><span class="empty">Lost: —</span></div>
     </section>
 
-    <!-- RIGHT -->
+    <!-- RIGHT (desktop only) -->
     <aside class="side">
       <div class="sideTop">
-        <!-- Bot avatar + chat bubbles -->
         <div class="chatHead">
           <div class="avatar" id="sideBotAvatar" aria-hidden="true">K</div>
           <div class="botInfo">
@@ -456,13 +531,9 @@
           </div>
         </div>
 
+        <!-- STATUS BOX REMOVED: only chat shows messages -->
         <div class="chat" id="chat">
           <div class="bubble bot">Ready when you are.</div>
-        </div>
-
-        <div class="status" id="status">
-          <span>Loading…</span>
-          <small id="turnHint"></small>
         </div>
       </div>
 
@@ -477,6 +548,23 @@
     </aside>
   </div>
 
+  <!-- MOBILE hamburger button -->
+  <button class="mobileMenuBtn" id="mobileMenuBtn" aria-label="Menu">
+    <div class="bars" aria-hidden="true"><span></span><span></span><span></span></div>
+  </button>
+
+  <!-- MOBILE bottom sheet -->
+  <div class="mobileSheetBackdrop" id="mobileSheet">
+    <div class="mobileSheet" role="dialog" aria-modal="true" aria-label="Game menu">
+      <div class="sheetGrab" id="sheetClose"><div class="pill"></div></div>
+      <div class="sheetBtns">
+        <button class="btn" id="mNewGameBtn">New Game</button>
+        <button class="btn" id="mFlipBtn">Flip Board</button>
+        <button class="btn danger" id="mResignBtn">Resign</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SIDE SELECT MODAL -->
   <div class="modalBackdrop" id="sideModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-label="New game">
@@ -484,9 +572,7 @@
         <div class="modalTitle">New Game</div>
         <button class="iconBtn" type="button" data-close-side>✕</button>
       </div>
-      <div class="modalBody">
-        Choose a side to play.
-      </div>
+      <div class="modalBody">Choose a side to play.</div>
       <div class="modalActions">
         <button class="btn" type="button" id="playWhiteBtn">Play as White</button>
         <button class="btn" type="button" id="playBlackBtn">Play as Black</button>
@@ -501,9 +587,7 @@
         <div class="modalTitle">Resign?</div>
         <button class="iconBtn" type="button" data-close-resign>✕</button>
       </div>
-      <div class="modalBody">
-        Are you sure you want to resign?
-      </div>
+      <div class="modalBody">Are you sure you want to resign?</div>
       <div class="modalActions">
         <button class="btn" type="button" id="resignNoBtn">No</button>
         <button class="btn danger" type="button" id="resignYesBtn">Yes</button>
@@ -512,18 +596,10 @@
   </div>
 
 <script>
-  function setStatus(msg, hint=""){
-    const el = document.getElementById("status");
-    const hintEl = document.getElementById("turnHint");
-    if (el) el.firstElementChild ? el.firstElementChild.textContent = msg : el.textContent = msg;
-    if (hintEl) hintEl.textContent = hint;
-  }
-
   function hardFail(msg){
-    setStatus(msg);
+    console.error(msg);
     throw new Error(msg);
   }
-
   if (typeof Chess === "undefined") hardFail("chess.js failed to load.");
   if (typeof ChessBoard === "undefined") hardFail("chessboard.js failed to load.");
 
@@ -532,6 +608,10 @@
   const flipBtn = document.getElementById("flipBtn");
   const resignBtn = document.getElementById("resignBtn");
 
+  const mNewGameBtn = document.getElementById("mNewGameBtn");
+  const mFlipBtn = document.getElementById("mFlipBtn");
+  const mResignBtn = document.getElementById("mResignBtn");
+
   const movesEl = document.getElementById("moves");
   const capturedTopEl = document.getElementById("capturedTop");
   const capturedBottomEl = document.getElementById("capturedBottom");
@@ -539,6 +619,7 @@
   // Chat
   const chatEl = document.getElementById("chat");
   function addBubble(text, who="bot"){
+    // On mobile, sidebar is hidden; we still keep chat history (not displayed)
     const div = document.createElement("div");
     div.className = "bubble " + (who === "you" ? "you" : "bot");
     div.textContent = text;
@@ -554,24 +635,41 @@
   const resignYesBtn = document.getElementById("resignYesBtn");
   const resignNoBtn = document.getElementById("resignNoBtn");
 
+  function openModal(el){ el.classList.add("open"); el.setAttribute("aria-hidden","false"); }
+  function closeModal(el){ el.classList.remove("open"); el.setAttribute("aria-hidden","true"); }
+
+  // Mobile sheet
+  const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+  const mobileSheet = document.getElementById("mobileSheet");
+  const sheetClose = document.getElementById("sheetClose");
+
+  function openSheet(){ mobileSheet.classList.add("open"); }
+  function closeSheet(){ mobileSheet.classList.remove("open"); }
+
+  mobileMenuBtn.addEventListener("click", () => openSheet());
+  sheetClose.addEventListener("click", () => closeSheet());
+  mobileSheet.addEventListener("click", (e) => { if (e.target === mobileSheet) closeSheet(); });
+
   // Game
   const game = new Chess();
   let board;
 
   // Side selection
-  let playerColor = "w";     // "w" or "b"
+  let playerColor = "w";
   let engineColor = "b";
   let gameStarted = false;
 
+  // Track captures to trigger "oof" / "ha!"
+  let lastCaptureCount = 0;
+
   // ---- Stockfish as a Web Worker ----
   const sf = new Worker("./stockfish10.js");
-
   let engineReady = false;
   let engineThinking = false;
 
   sf.onerror = (e) => {
-    setStatus("Engine error", (e.message || "unknown error"));
     console.error("Stockfish worker error:", e);
+    addBubble("Engine error.", "bot");
   };
 
   sf.onmessage = (event) => {
@@ -587,11 +685,7 @@
     if (line === "readyok") {
       engineReady = true;
       addBubble("Let's play.", "bot");
-      if (gameStarted && game.turn() === engineColor) {
-        requestEngineMove();
-      } else {
-        updateTurnStatus();
-      }
+      if (gameStarted && game.turn() === engineColor) requestEngineMove();
       return;
     }
 
@@ -599,51 +693,28 @@
       const uci = line.split(" ")[1];
 
       engineThinking = false;
-      newGameBtn.disabled = false;
+      if (newGameBtn) newGameBtn.disabled = false;
 
-      if (uci && uci !== "(none)") applyEngineMove(uci);
+      if (uci && uci !== "(none)") {
+        const beforeVerbose = game.history({ verbose:true });
+        const beforeCaptures = beforeVerbose.filter(m => m.captured).length;
+
+        applyEngineMove(uci);
+
+        const afterVerbose = game.history({ verbose:true });
+        const afterCaptures = afterVerbose.filter(m => m.captured).length;
+
+        // If engine captured a piece
+        if (afterCaptures > beforeCaptures) addBubble("ha!", "bot");
+      }
 
       renderMoves();
       renderCaptured();
-      updateTurnStatus();
-      addBubble("Your move.", "bot");
+      if (!game.game_over()) addBubble("Your move.", "bot");
     }
   };
 
-  setStatus("Loading engine…", "");
   sf.postMessage("uci");
-
-  setTimeout(() => {
-    if (!engineReady) {
-      setStatus("Engine not responding", "Check Console for worker errors.");
-    }
-  }, 3000);
-
-  function gameOverText(){
-    if (!game.game_over()) return "";
-    if (game.in_checkmate()) return "Checkmate.";
-    if (game.in_draw()) return "Draw.";
-    return "Game over.";
-  }
-
-  function updateTurnStatus(){
-    const over = gameOverText();
-    if (over) {
-      setStatus(over, "New Game?");
-      addBubble(over, "bot");
-      return;
-    }
-    if (!gameStarted) {
-      setStatus("Press New Game", "");
-      return;
-    }
-    if (engineThinking) {
-      setStatus("krisper is thinking…", "");
-      return;
-    }
-    const yourTurn = (game.turn() === playerColor);
-    setStatus(yourTurn ? "Your move" : "krisper to move", "");
-  }
 
   function requestEngineMove(){
     if (!engineReady || engineThinking) return;
@@ -651,8 +722,7 @@
     if (game.turn() !== engineColor) return;
 
     engineThinking = true;
-    newGameBtn.disabled = true;
-    setStatus("krisper is thinking…", "");
+    if (newGameBtn) newGameBtn.disabled = true;
     addBubble("Thinking…", "bot");
 
     sf.postMessage("position fen " + game.fen());
@@ -663,7 +733,6 @@
     const from = uci.slice(0,2);
     const to   = uci.slice(2,4);
     const promo = uci.length >= 5 ? uci[4] : "q";
-
     const move = game.move({ from, to, promotion: promo });
     if (move) board.position(game.fen(), true);
   }
@@ -685,18 +754,13 @@
   }
 
   function renderMoves(){
+    if (!movesEl) return;
     const history = game.history();
     const rows = [];
     for (let i = 0; i < history.length; i += 2){
-      rows.push({
-        no: (i/2) + 1,
-        w: history[i] || "",
-        b: history[i+1] || ""
-      });
+      rows.push({ no: (i/2)+1, w: history[i]||"", b: history[i+1]||"" });
     }
-
     movesEl.innerHTML = "";
-
     rows.forEach((r, idx) => {
       const row = document.createElement("div");
       row.className = "moveRow";
@@ -715,25 +779,19 @@
 
       const isLastRow = idx === rows.length - 1;
       if (isLastRow) {
-        if (history.length % 2 === 1) {
-          if (r.w) w.classList.add("last");
-        } else {
-          if (r.b) b.classList.add("last");
-        }
+        if (history.length % 2 === 1) { if (r.w) w.classList.add("last"); }
+        else { if (r.b) b.classList.add("last"); }
       }
 
-      row.appendChild(no);
-      row.appendChild(w);
-      row.appendChild(b);
+      row.appendChild(no); row.appendChild(w); row.appendChild(b);
       movesEl.appendChild(row);
     });
-
     movesEl.scrollTop = movesEl.scrollHeight;
   }
 
-  // Captured pieces: SWAPPED per request
-  // "white captures on black side and vice versa"
-  // => show White's captures in the BLACK strip, Black's captures in the WHITE strip.
+  // Captured pieces: SWAPPED per your request
+  // White's captures show on black side (bottom strip)
+  // Black's captures show on white side (top strip)
   function renderCaptured(){
     const verbose = game.history({ verbose:true });
     const capturedByWhite = [];
@@ -741,21 +799,20 @@
 
     for (const mv of verbose){
       if (!mv.captured) continue;
-      const cap = mv.captured; // p n b r q
-      if (mv.color === "w") capturedByWhite.push(cap);
-      else capturedByBlack.push(cap);
+      if (mv.color === "w") capturedByWhite.push(mv.captured);
+      else capturedByBlack.push(mv.captured);
     }
 
     const order = { q:0, r:1, b:2, n:3, p:4 };
     capturedByWhite.sort((a,b)=> (order[a] ?? 9) - (order[b] ?? 9));
     capturedByBlack.sort((a,b)=> (order[a] ?? 9) - (order[b] ?? 9));
 
-    const paint = (el, arr, prefixColor) => {
+    const paint = (el, arr, prefixColor, emptyText) => {
       el.innerHTML = "";
       if (!arr.length) {
         const s = document.createElement("span");
         s.className = "empty";
-        s.textContent = (el.id === "capturedTop") ? "Captured: —" : "Lost: —";
+        s.textContent = emptyText;
         el.appendChild(s);
         return;
       }
@@ -768,28 +825,22 @@
       }
     };
 
-    // If White captured, those are black pieces -> render as BLACK pieces (prefix "b")
-    // If Black captured, those are white pieces -> render as WHITE pieces (prefix "w")
-    // Now SWAP which strip they appear on:
-    // - Put White's captures on "black side" (bottom strip)
-    // - Put Black's captures on "white side" (top strip)
-    paint(capturedTopEl, capturedByBlack, "w");
-    paint(capturedBottomEl, capturedByWhite, "b");
+    // top (white side): black captures => captured pieces are WHITE pieces (prefix "w")
+    // bottom (black side): white captures => captured pieces are BLACK pieces (prefix "b")
+    paint(capturedTopEl, capturedByBlack, "w", "Captured: —");
+    paint(capturedBottomEl, capturedByWhite, "b", "Lost: —");
   }
-
-  function openModal(el){ el.classList.add("open"); el.setAttribute("aria-hidden","false"); }
-  function closeModal(el){ el.classList.remove("open"); el.setAttribute("aria-hidden","true"); }
 
   function resetToMain(){
     game.reset();
     board.start(true);
     removeHighlights();
     engineThinking = false;
-    newGameBtn.disabled = false;
+    if (newGameBtn) newGameBtn.disabled = false;
     gameStarted = false;
+    lastCaptureCount = 0;
     renderMoves();
     renderCaptured();
-    updateTurnStatus();
     addBubble("New game ready.", "bot");
   }
 
@@ -800,17 +851,13 @@
     resetToMain();
     gameStarted = true;
 
-    if (playerColor === "w") board.orientation("white");
-    else board.orientation("black");
-
+    board.orientation(playerColor === "w" ? "white" : "black");
     addBubble("You are playing " + (playerColor === "w" ? "White." : "Black."), "bot");
-    updateTurnStatus();
 
-    if (engineReady && game.turn() === engineColor) {
-      requestEngineMove();
-    }
+    if (engineReady && game.turn() === engineColor) requestEngineMove();
   }
 
+  // Board init
   board = ChessBoard("board", {
     draggable: true,
     position: "start",
@@ -822,10 +869,9 @@
 
       const isWhitePiece = piece.startsWith("w");
       const isBlackPiece = piece.startsWith("b");
-      const youAreWhite = (playerColor === "w");
 
-      if (youAreWhite && isBlackPiece) return false;
-      if (!youAreWhite && isWhitePiece) return false;
+      if (playerColor === "w" && isBlackPiece) return false;
+      if (playerColor === "b" && isWhitePiece) return false;
       if (game.turn() !== playerColor) return false;
 
       highlightLegalMoves(source);
@@ -836,16 +882,23 @@
       removeHighlights();
       if (!gameStarted) return "snapback";
 
+      const beforeVerbose = game.history({ verbose:true });
+      const beforeCaptures = beforeVerbose.filter(m => m.captured).length;
+
       const move = game.move({ from: source, to: target, promotion: "q" });
       if (move === null) return "snapback";
 
       board.position(game.fen(), true);
-
       renderMoves();
       renderCaptured();
-      updateTurnStatus();
 
       addBubble("Played " + move.san, "you");
+
+      const afterVerbose = game.history({ verbose:true });
+      const afterCaptures = afterVerbose.filter(m => m.captured).length;
+
+      // If YOU captured a piece => "oof"
+      if (afterCaptures > beforeCaptures) addBubble("oof", "bot");
 
       setTimeout(requestEngineMove, 50);
     },
@@ -853,13 +906,21 @@
     onSnapEnd: () => board.position(game.fen())
   });
 
-  // Buttons
-  newGameBtn.addEventListener("click", () => openModal(sideModal));
-  flipBtn.addEventListener("click", () => board.flip());
-  resignBtn.addEventListener("click", () => {
+  // Buttons (desktop)
+  function openNewGame(){ openModal(sideModal); }
+  function openResign(){
     if (!gameStarted) return;
     openModal(resignModal);
-  });
+  }
+
+  if (newGameBtn) newGameBtn.addEventListener("click", openNewGame);
+  if (flipBtn) flipBtn.addEventListener("click", () => board.flip());
+  if (resignBtn) resignBtn.addEventListener("click", openResign);
+
+  // Buttons (mobile sheet)
+  mNewGameBtn.addEventListener("click", () => { closeSheet(); openNewGame(); });
+  mFlipBtn.addEventListener("click", () => { closeSheet(); board.flip(); });
+  mResignBtn.addEventListener("click", () => { closeSheet(); openResign(); });
 
   // Side modal actions
   playWhiteBtn.addEventListener("click", () => { closeModal(sideModal); startNewGame("w"); });
@@ -880,11 +941,12 @@
   sideModal.addEventListener("click", (e) => { if (e.target === sideModal) closeModal(sideModal); });
   resignModal.addEventListener("click", (e) => { if (e.target === resignModal) closeModal(resignModal); });
 
-  // Initial renders
+  // Initial
   renderMoves();
   renderCaptured();
-  updateTurnStatus();
+  addBubble("Press New Game to begin.", "bot");
 
+  // Keep board sized correctly
   window.addEventListener("resize", () => board.resize());
   setTimeout(() => board.resize(), 250);
 </script>
