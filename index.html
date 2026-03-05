@@ -67,7 +67,6 @@
       align-items:start;
     }
 
-    /* LEFT COLUMN */
     .left{
       height:calc(100vh - 36px);
       display:flex;
@@ -80,7 +79,6 @@
       justify-content:flex-start;
     }
 
-    /* BAR WRAP matches board width */
     .barWrap{
       width:var(--boardW);
       max-width:100%;
@@ -89,7 +87,6 @@
       pointer-events:none;
     }
 
-    /* NEW: bar background/border like sidebar */
     .topBarCard, .bottomBarCard{
       background:var(--panel);
       border:1px solid var(--line);
@@ -98,20 +95,23 @@
       width:100%;
     }
 
+    /* CHANGED: left-align content in bar */
     .flatBar{
       width:100%;
       display:flex;
       align-items:flex-end;
-      justify-content:center; /* centers avatar/name/elo block */
+      justify-content:flex-start;   /* was center */
       gap:12px;
       padding:0;
       margin:0;
       min-height:0;
     }
 
+    /* CHANGED: keep meta block left */
     .centerMeta{
       display:flex;
       align-items:flex-end;
+      justify-content:flex-start;   /* explicit */
       gap:10px;
       min-width:0;
       flex:0 0 auto;
@@ -150,7 +150,6 @@
       line-height:1.05;
     }
 
-    /* captured stays where it was (to the right of names), but within the bar */
     .capInline{
       display:flex;
       align-items:flex-end;
@@ -184,7 +183,6 @@
       transform: translateY(1px);
     }
 
-    /* BOARD */
     .boardWrap{
       flex:1 1 auto;
       min-height:0;
@@ -203,11 +201,10 @@
       position:relative;
       border-radius:var(--sq);
       overflow:hidden;
-      border:none; /* no board border */
+      border:none;
       background:transparent;
     }
 
-    /* coords rely on normal line-height, do NOT set line-height:0 here */
     #board{ width:100%; height:100%; border-radius:var(--sq); }
 
     .white-1e1d7{ background:var(--light) !important; }
@@ -227,7 +224,6 @@
       pointer-events:none;
     }
 
-    /* BOARD-SIZED OVERLAYS */
     .boardModalOverlay{
       position:absolute;
       inset:0;
@@ -369,7 +365,6 @@
     }
     .btnBlack:hover{ filter:brightness(1.06); }
 
-    /* SIDEBAR */
     .side{
       height:calc(100vh - 36px);
       display:flex;
@@ -450,14 +445,13 @@
       padding:10px 12px;
       border-radius:12px;
       border:1px solid rgba(0,0,0,.08);
-      background:var(--bubbleBg);
-      color:var(--bubbleText);
+      background:#f2f2f2;
+      color:#1b1b1b;
       font-size:13px;
       line-height:1.25;
       white-space:pre-wrap;
       align-self:flex-start;
 
-      /* NEW: square bottom-left corner only */
       border-bottom-left-radius:4px;
 
       opacity:0;
@@ -550,7 +544,6 @@
     }
     .btn.square i{ font-size:16px; }
 
-    /* ---- MOBILE ---- */
     .mobileMenuBtn, .mobileSheetBackdrop { display:none; }
     @media (max-width: 980px){
       .app{
@@ -645,7 +638,6 @@
   <div class="app">
     <section class="left">
 
-      <!-- TOP BAR (with background again) -->
       <div class="barWrap">
         <div class="topBarCard">
           <div class="flatBar" id="topBar">
@@ -670,7 +662,6 @@
         </div>
       </div>
 
-      <!-- BOARD -->
       <div class="boardWrap">
         <div class="boardBox" id="boardBox">
           <div id="board"></div>
@@ -735,7 +726,6 @@
         </div>
       </div>
 
-      <!-- BOTTOM BAR (with background again) -->
       <div class="barWrap">
         <div class="bottomBarCard">
           <div class="flatBar" id="bottomBar">
@@ -759,7 +749,6 @@
 
     </section>
 
-    <!-- SIDEBAR -->
     <aside class="side">
       <div class="sideTop">
         <div class="sideHeader">
@@ -946,7 +935,6 @@
     showBubbleTimed(text);
   }
 
-  // NEW: replace random chatter lines
   const randomLines = [
     "Do you see what I'm trying to do?",
     "Hmm...",
@@ -1101,8 +1089,8 @@
     const enginePrefix = (engineColor === "w") ? "b" : "w";
     const playerPrefix = (playerColor === "w") ? "b" : "w";
 
-    paint(capTopIcons, engineCaps, enginePrefix);
-    paint(capBottomIcons, playerCaps, playerPrefix);
+    paint(document.getElementById("capTopIcons"), engineCaps, enginePrefix);
+    paint(document.getElementById("capBottomIcons"), playerCaps, playerPrefix);
 
     let topScoreText = "";
     let bottomScoreText = "";
@@ -1118,8 +1106,8 @@
       }
     }
 
-    capTopScore.textContent = topScoreText;
-    capBottomScore.textContent = bottomScoreText;
+    document.getElementById("capTopScore").textContent = topScoreText;
+    document.getElementById("capBottomScore").textContent = bottomScoreText;
   }
 
   function renderMoves(){
