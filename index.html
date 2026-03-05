@@ -1174,7 +1174,7 @@
 
     if (line === "uciok") {
       sf.postMessage("setoption name UCI_LimitStrength value true");
-      sf.postMessage("setoption name UCI_Elo value 1102");
+      sf.postMessage("setoption name UCI_Elo value 1350");
       sf.postMessage("isready");
       return;
     }
@@ -1223,7 +1223,7 @@
 
     engineThinking = true;
     sf.postMessage("position fen " + game.fen());
-    sf.postMessage("go depth 14");
+    sf.postMessage("go depth 1");
   }
 
   function syncBoardWidth(){
