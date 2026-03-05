@@ -45,12 +45,9 @@
       --green:#2f7d32;
       --greenHover:#3a8f3d;
 
-      /* slightly rounded */
       --sq:6px;
-
       --boardBorder:1px;
 
-      /* chat bubble */
       --bubbleBg:#f2f2f2;
       --bubbleText:#1b1b1b;
     }
@@ -70,7 +67,7 @@
       width:min(1320px, 100%);
       margin:0 auto;
       display:grid;
-      grid-template-columns: 1fr 420px; /* wider sidebar */
+      grid-template-columns: 1fr 420px;
       gap:16px;
       padding:18px;
       align-items:start;
@@ -80,13 +77,14 @@
       height:calc(100vh - 36px);
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:6px; /* reduced spacing between top bar and captured strip */
       min-width:0;
     }
 
+    /* Top bar: remove darker bg + border */
     .playerBar{
-      background:var(--panel);
-      border:1px solid var(--line);
+      background:transparent;
+      border:none;
       border-radius:var(--sq);
       padding:10px 12px;
       display:flex;
@@ -101,8 +99,8 @@
     .avatar{
       width:36px; height:36px;
       border-radius:var(--sq);
-      background:var(--panel2);
-      border:1px solid var(--line);
+      background:transparent;
+      border:none;
       display:grid;
       place-items:center;
       font-weight:800;
@@ -139,15 +137,16 @@
     }
     .botLink:hover .name{ text-decoration:underline; }
 
+    /* Captured strips: remove darker bg + border */
     .capturedStrip{
-      background:var(--panel);
-      border:1px solid var(--line);
+      background:transparent;
+      border:none;
       border-radius:var(--sq);
-      padding:8px 10px;
+      padding:6px 2px; /* a bit tighter */
       display:flex;
       gap:6px;
       align-items:center;
-      min-height:40px;
+      min-height:34px;
       overflow:hidden;
       flex:0 0 auto;
     }
@@ -171,7 +170,7 @@
     }
 
     .boardBox{
-      width:min(100%, calc(100vh - 56px - 40px - 40px - 36px - 20px));
+      width:min(100%, calc(100vh - 56px - 34px - 34px - 36px - 20px));
       max-width:760px;
       aspect-ratio:1 / 1;
       position:relative;
@@ -181,7 +180,17 @@
       background:transparent;
     }
 
-    #board{ width:100%; height:100%; border-radius:var(--sq); }
+    #board{ width:100%; height:100%; border-radius:var(--sq); position:relative; z-index:1; }
+
+    /* Arrow/circle overlay canvas */
+    #arrowLayer{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:5;
+      pointer-events:none; /* we capture right-click on boardBox, not the canvas */
+    }
 
     .white-1e1d7{ background:var(--light) !important; }
     .black-3c85d{ background:var(--dark) !important; }
@@ -237,13 +246,9 @@
       border-top:1px solid var(--line);
       display:flex;
       gap:10px;
-      flex-wrap:nowrap;          /* keep side-by-side */
+      flex-wrap:nowrap;
     }
-    .endActions .btn{
-      flex:1 1 0;
-      min-width:0;
-      white-space:nowrap;
-    }
+    .endActions .btn{ flex:1 1 0; min-width:0; white-space:nowrap; }
 
     .iconBtn{
       appearance:none;
@@ -336,7 +341,7 @@
       gap:8px;
     }
 
-    /* Chat row with avatar at left (a little bigger) */
+    /* Chat area (unchanged sizing from last round) */
     .chatRow{
       display:grid;
       grid-template-columns: 110px 1fr;
@@ -348,7 +353,7 @@
       width:110px;
       height:110px;
       border-radius:var(--sq);
-      border:none;                 /* no border */
+      border:none;
       background:transparent;
       overflow:hidden;
       display:grid;
@@ -358,12 +363,11 @@
     }
     .chatAvatar img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-    /* chat area: NOT scrollable; only last message shows; slightly lower alignment */
     .chat{
       background:transparent;
       border:none;
       border-radius:0;
-      padding:18px 0 0;            /* pushes bubble down to better align with face */
+      padding:18px 0 0;
       display:flex;
       flex-direction:column;
       justify-content:flex-start;
@@ -372,7 +376,7 @@
       overflow:hidden;
     }
 
-    /* ONLY bot bubbles; white with dark text; 10s hold then quick fade */
+    /* Bot bubble base */
     .bubble{
       max-width:92%;
       padding:10px 12px;
@@ -384,10 +388,13 @@
       line-height:1.25;
       white-space:pre-wrap;
       align-self:flex-start;
-
-      opacity:0;
-      animation: bubbleLife 10.35s ease forwards; /* 10s visible + quick fade */
       will-change: opacity, transform;
+    }
+
+    /* Animated bubbles (10s hold then quick fade) */
+    .bubble.animated{
+      opacity:0;
+      animation: bubbleLife 10.35s ease forwards;
     }
     @keyframes bubbleLife{
       0%   { opacity:0; transform:translateY(2px); }
@@ -396,9 +403,22 @@
       100% { opacity:0; transform:translateY(-1px); }
     }
 
-    /* Moves header: more breathing room under "Moves" */
+    /* Sticky bubble (no fade until we tell it to) */
+    .bubble.sticky{
+      opacity:1;
+      transform:none;
+    }
+    /* When starting game, we fade the sticky one quickly */
+    .bubble.fadeOut{
+      animation: fadeQuick .28s ease forwards;
+    }
+    @keyframes fadeQuick{
+      from{ opacity:1; transform:translateY(0); }
+      to  { opacity:0; transform:translateY(-1px); }
+    }
+
     .movesTitle{
-      padding:10px 12px 8px; /* was ... 0 */
+      padding:10px 12px 8px;
       color:var(--muted);
       font-size:12px;
       letter-spacing:.02em;
@@ -598,6 +618,7 @@
       <div class="boardWrap">
         <div class="boardBox" id="boardBox">
           <div id="board"></div>
+          <canvas id="arrowLayer"></canvas>
 
           <div class="endOverlay" id="endOverlay" aria-hidden="true">
             <div class="endCard" role="dialog" aria-modal="true" aria-label="Game over">
@@ -691,19 +712,16 @@
   if (typeof Chess === "undefined") hardFail("chess.js failed to load.");
   if (typeof ChessBoard === "undefined") hardFail("chessboard.js failed to load.");
 
-  // ---- Chat timing (10s visible + quick fade) ----
-  const CHAT_VISIBLE_MS = 10000;
-  const CHAT_TOTAL_MS   = 10350; // matches CSS bubbleLife duration (10.35s)
+  // ---- Chat timing (animated bubbles) ----
+  const CHAT_TOTAL_MS = 10350; // matches CSS bubbleLife (10.35s)
 
   // Avatars
-  const TOP_AVATAR_URL  = "./krisper-avatar.png"; // top bar
-  const CHAT_AVATAR_URL = "./krisper.png";        // sidebar chat
+  const TOP_AVATAR_URL  = "./krisper-avatar.png";
+  const CHAT_AVATAR_URL = "./krisper.png";
 
   function setImgAvatar(el, url, fallbackLetter){
     if (!el) return;
-    el.innerHTML = url
-      ? `<img src="${url}" alt="Avatar">`
-      : (fallbackLetter || "K");
+    el.innerHTML = url ? `<img src="${url}" alt="Avatar">` : (fallbackLetter || "K");
   }
   setImgAvatar(document.getElementById("topBotAvatar"), TOP_AVATAR_URL, "K");
   setImgAvatar(document.getElementById("sideChatAvatar"), CHAT_AVATAR_URL, "K");
@@ -720,6 +738,10 @@
   const movesEl = document.getElementById("moves");
   const capturedTopEl = document.getElementById("capturedTop");
   const capturedBottomEl = document.getElementById("capturedBottom");
+
+  const boardBox = document.getElementById("boardBox");
+  const arrowCanvas = document.getElementById("arrowLayer");
+  const arrowCtx = arrowCanvas.getContext("2d");
 
   // Board modals
   const sideOverlay = document.getElementById("sideOverlay");
@@ -761,20 +783,23 @@
   endCloseBtn.addEventListener("click", closeEndOverlay);
   endOverlay.addEventListener("click", (e) => { if (e.target === endOverlay) closeEndOverlay(); });
 
-  // Chat (BOT ONLY) — only last message, fades after 10s
+  // ---- Chat (BOT ONLY) ----
   const chatEl = document.getElementById("chat");
   let chatTimer = null;
+  let stickyEl = null;
 
   function clearChat(){
     chatEl.innerHTML = "";
+    stickyEl = null;
     if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
   }
 
-  function botSay(text){
+  function botSayAnimated(text){
     chatEl.innerHTML = "";
+    stickyEl = null;
 
     const div = document.createElement("div");
-    div.className = "bubble";
+    div.className = "bubble animated";
     div.textContent = text;
     chatEl.appendChild(div);
 
@@ -782,6 +807,25 @@
     chatTimer = setTimeout(() => {
       if (div && div.parentNode === chatEl) div.remove();
     }, CHAT_TOTAL_MS);
+  }
+
+  function botSaySticky(text){
+    chatEl.innerHTML = "";
+    if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
+
+    const div = document.createElement("div");
+    div.className = "bubble sticky";
+    div.textContent = text;
+    chatEl.appendChild(div);
+    stickyEl = div;
+  }
+
+  function fadeStickyIfPresent(){
+    if (!stickyEl) return;
+    const el = stickyEl;
+    stickyEl = null;
+    el.classList.add("fadeOut");
+    setTimeout(() => { if (el.parentNode === chatEl) el.remove(); }, 320);
   }
 
   // Periodic chatter every ~3–5 full moves (≈6–10 plies), only if no check/end
@@ -807,15 +851,15 @@
     if (!gameStarted) return;
     if (game.game_over()) return;
     if (game.in_check()) return;
-    plySinceChatter++;
 
+    plySinceChatter++;
     if (plySinceChatter >= nextChatterAtPlies){
-      botSay(pick(randomLines));
+      botSayAnimated(pick(randomLines));
       resetChatter();
     }
   }
 
-  // Copy PGN
+  // ---- Game / PGN ----
   const game = new Chess();
 
   async function copyPgnToClipboard(){
@@ -885,22 +929,22 @@
     if (game.in_checkmate()){
       const mated = game.turn();
       if (mated === engineColor) {
-        botSay("You got me.");
+        botSayAnimated("You got me.");
         openEndOverlay("You won!");
       } else {
-        botSay("Get rekt.");
+        botSayAnimated("Get rekt.");
         openEndOverlay("You lost.");
       }
       return true;
     }
     if (game.in_stalemate()){
-      botSay("Good game.");
+      botSayAnimated("Good game.");
       return true;
     }
     if (game.in_check()){
       const inCheck = game.turn();
-      if (inCheck === engineColor) botSay("Check.");
-      else botSay("Check, m8.");
+      if (inCheck === engineColor) botSayAnimated("Check.");
+      else botSayAnimated("Check, m8.");
       return true;
     }
     return false;
@@ -908,7 +952,7 @@
 
   sf.onerror = (e) => {
     console.error("Stockfish worker error:", e);
-    botSay("Engine error.");
+    botSayAnimated("Engine error.");
   };
 
   sf.onmessage = (event) => {
@@ -943,7 +987,6 @@
             renderMoves();
             renderCaptured();
 
-            // no move bubbles; only check/end + periodic chatter
             const spoke = speakChecksAndEnds();
             if (!spoke && !game.game_over()) maybeRandomChatter();
           }
@@ -964,6 +1007,7 @@
     sf.postMessage("go depth 14");
   }
 
+  // ---- Legal move dots ----
   const PIECE_THEME = "./img/chesspieces/wikipedia/{piece}.png";
   const pieceImgSrc = (pieceCode) => PIECE_THEME.replace("{piece}", pieceCode);
 
@@ -982,6 +1026,7 @@
     }
   }
 
+  // ---- Moves list ----
   function renderMoves(){
     if (!movesEl) return;
     const history = game.history();
@@ -1018,6 +1063,7 @@
     movesEl.scrollTop = movesEl.scrollHeight;
   }
 
+  // ---- Captures ----
   const pieceValue = { p:1, n:3, b:3, r:5, q:9 };
 
   function renderCaptured(){
@@ -1043,7 +1089,7 @@
     capturedByWhite.sort((a,b)=> (order[a] ?? 9) - (order[b] ?? 9));
     capturedByBlack.sort((a,b)=> (order[a] ?? 9) - (order[b] ?? 9));
 
-    const diff = pointsWhite - pointsBlack; // + => White up
+    const diff = pointsWhite - pointsBlack;
 
     function paintStrip(el, arr, prefixColor, scoreText){
       el.innerHTML = "";
@@ -1076,15 +1122,234 @@
     paintStrip(capturedBottomEl, capturedByWhite, "b", bottomScore);
   }
 
+  // ---- Idle intro (new behavior) ----
   function showIdleIntro(){
     clearChat();
     resetChatter();
 
-    // "Hey..." stays until it fully fades, THEN show "Press New Game..."
-    botSay("Hey, I'm Krisper.");
-    setTimeout(() => botSay("Press New Game to begin."), CHAT_TOTAL_MS + 50);
+    // Show "Hey..." animated, then show sticky "Press New Game..." and keep it until game starts
+    botSayAnimated("Hey, I'm Krisper.");
+    setTimeout(() => {
+      botSaySticky("Press New Game to begin.");
+    }, CHAT_TOTAL_MS + 50);
   }
 
+  // ---- Arrow/Circle drawing (right-click like lichess/chess.com) ----
+  let arrows = [];            // {from, to}
+  let circles = new Set();    // "e4"
+  let isRDragging = false;
+  let dragFrom = null;
+  let previewTo = null;
+  let downPos = null;
+
+  function resizeArrowCanvas(){
+    const r = boardBox.getBoundingClientRect();
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    arrowCanvas.width  = Math.round(r.width * dpr);
+    arrowCanvas.height = Math.round(r.height * dpr);
+    arrowCanvas.style.width = r.width + "px";
+    arrowCanvas.style.height = r.height + "px";
+    arrowCtx.setTransform(dpr,0,0,dpr,0,0);
+    redrawMarks();
+  }
+
+  function squareFromClientXY(clientX, clientY){
+    const r = boardBox.getBoundingClientRect();
+    const x = clientX - r.left;
+    const y = clientY - r.top;
+    if (x < 0 || y < 0 || x > r.width || y > r.height) return null;
+
+    const sq = r.width / 8;
+    let file = Math.floor(x / sq);
+    let rankFromTop = Math.floor(y / sq);
+
+    const isWhiteOriented = (board.orientation && board.orientation() === "white") || (playerColor === "w");
+    // chessboard.js: top-left is a8 when oriented white.
+    let f, rank;
+    if (isWhiteOriented){
+      f = file;                 // a..h left->right
+      rank = 7 - rankFromTop;   // 8..1 top->bottom
+    } else {
+      f = 7 - file;
+      rank = rankFromTop;
+    }
+
+    if (f < 0 || f > 7 || rank < 0 || rank > 7) return null;
+    const files = "abcdefgh";
+    return files[f] + (rank + 1);
+  }
+
+  function centerOfSquare(square){
+    const r = boardBox.getBoundingClientRect();
+    const sq = r.width / 8;
+
+    const files = "abcdefgh";
+    const f = files.indexOf(square[0]);
+    const rank = parseInt(square[1], 10);
+
+    const isWhiteOriented = (board.orientation && board.orientation() === "white") || (playerColor === "w");
+
+    let col, rowFromTop;
+    if (isWhiteOriented){
+      col = f;
+      rowFromTop = 8 - rank;
+    } else {
+      col = 7 - f;
+      rowFromTop = rank - 1;
+    }
+
+    return {
+      x: (col + 0.5) * sq,
+      y: (rowFromTop + 0.5) * sq,
+      sq
+    };
+  }
+
+  function sameArrow(a,b){ return a.from === b.from && a.to === b.to; }
+
+  function toggleArrow(from, to){
+    if (!from || !to || from === to) return;
+    const idx = arrows.findIndex(x => sameArrow(x, {from,to}));
+    if (idx >= 0) arrows.splice(idx,1);
+    else arrows.push({from,to});
+  }
+
+  function toggleCircle(square){
+    if (!square) return;
+    if (circles.has(square)) circles.delete(square);
+    else circles.add(square);
+  }
+
+  function drawArrow(from, to, isPreview){
+    const A = centerOfSquare(from);
+    const B = centerOfSquare(to);
+    const dx = B.x - A.x;
+    const dy = B.y - A.y;
+    const len = Math.hypot(dx,dy);
+    if (len < 1) return;
+
+    const lineW = Math.max(6, A.sq * 0.12);
+    const headL = Math.max(14, A.sq * 0.35);
+    const headW = Math.max(10, A.sq * 0.22);
+
+    const ux = dx / len;
+    const uy = dy / len;
+
+    // shorten so head doesn't overshoot center of target square
+    const endX = B.x - ux * (A.sq * 0.20);
+    const endY = B.y - uy * (A.sq * 0.20);
+    const startX = A.x;
+    const startY = A.y;
+
+    arrowCtx.save();
+    arrowCtx.globalAlpha = isPreview ? 0.45 : 0.70;
+    arrowCtx.strokeStyle = "#d64545";
+    arrowCtx.fillStyle = "#d64545";
+    arrowCtx.lineCap = "round";
+    arrowCtx.lineJoin = "round";
+    arrowCtx.lineWidth = lineW;
+
+    // line
+    arrowCtx.beginPath();
+    arrowCtx.moveTo(startX, startY);
+    arrowCtx.lineTo(endX - ux * headL * 0.55, endY - uy * headL * 0.55);
+    arrowCtx.stroke();
+
+    // head triangle
+    const px = -uy;
+    const py = ux;
+    const tipX = endX;
+    const tipY = endY;
+    const baseX = tipX - ux * headL;
+    const baseY = tipY - uy * headL;
+
+    arrowCtx.beginPath();
+    arrowCtx.moveTo(tipX, tipY);
+    arrowCtx.lineTo(baseX + px * headW, baseY + py * headW);
+    arrowCtx.lineTo(baseX - px * headW, baseY - py * headW);
+    arrowCtx.closePath();
+    arrowCtx.fill();
+
+    arrowCtx.restore();
+  }
+
+  function drawCircle(square){
+    const C = centerOfSquare(square);
+    const radius = C.sq * 0.40;
+
+    arrowCtx.save();
+    arrowCtx.globalAlpha = 0.70;
+    arrowCtx.strokeStyle = "#d64545";
+    arrowCtx.lineWidth = Math.max(5, C.sq * 0.10);
+    arrowCtx.beginPath();
+    arrowCtx.arc(C.x, C.y, radius, 0, Math.PI * 2);
+    arrowCtx.stroke();
+    arrowCtx.restore();
+  }
+
+  function redrawMarks(){
+    const r = boardBox.getBoundingClientRect();
+    arrowCtx.clearRect(0,0,r.width,r.height);
+
+    // circles under arrows like lichess
+    circles.forEach(sq => drawCircle(sq));
+    arrows.forEach(a => drawArrow(a.from, a.to, false));
+    if (isRDragging && dragFrom && previewTo && dragFrom !== previewTo){
+      drawArrow(dragFrom, previewTo, true);
+    }
+  }
+
+  // prevent context menu on board area (so right-click works)
+  boardBox.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  boardBox.addEventListener("mousedown", (e) => {
+    if (e.button !== 2) return; // right click only
+    const sq = squareFromClientXY(e.clientX, e.clientY);
+    if (!sq) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    isRDragging = true;
+    dragFrom = sq;
+    previewTo = sq;
+    downPos = {x:e.clientX, y:e.clientY};
+    redrawMarks();
+  }, true);
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isRDragging) return;
+    const sq = squareFromClientXY(e.clientX, e.clientY);
+    if (!sq) return;
+    previewTo = sq;
+    redrawMarks();
+  }, true);
+
+  window.addEventListener("mouseup", (e) => {
+    if (!isRDragging) return;
+    if (e.button !== 2) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const toSq = squareFromClientXY(e.clientX, e.clientY);
+
+    // click vs drag threshold
+    const moved = downPos ? Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) : 999;
+
+    if (toSq && dragFrom){
+      if (moved < 6 || toSq === dragFrom) toggleCircle(dragFrom);
+      else toggleArrow(dragFrom, toSq);
+    }
+
+    isRDragging = false;
+    dragFrom = null;
+    previewTo = null;
+    downPos = null;
+    redrawMarks();
+  }, true);
+
+  // ---- Init / reset / start ----
   function resetToMain(){
     game.reset();
     board.start(true);
@@ -1104,6 +1369,9 @@
   }
 
   function startNewGame(asColor){
+    // fade the sticky "Press New Game..." away once the game starts
+    fadeStickyIfPresent();
+
     playerColor = asColor;
     engineColor = (asColor === "w") ? "b" : "w";
 
@@ -1121,11 +1389,15 @@
     renderMoves();
     renderCaptured();
 
-    clearChat();
-    resetChatter();
-    botSay("Let's play.");
+    // clear any remaining chat and do a quick start line
+    setTimeout(() => {
+      clearChat();
+      resetChatter();
+      botSayAnimated("Let's play.");
+    }, 140);
 
     setGameUiState();
+    redrawMarks();
 
     if (engineReady && game.turn() === engineColor) requestEngineMove();
   }
@@ -1184,11 +1456,11 @@
   }
 
   newGameBtn.addEventListener("click", openNewGame);
-  flipBtn.addEventListener("click", () => board.flip());
+  flipBtn.addEventListener("click", () => { board.flip(); redrawMarks(); });
   resignBtn.addEventListener("click", openResign);
 
   mNewGameBtn.addEventListener("click", () => { closeSheet(); openNewGame(); });
-  mFlipBtn.addEventListener("click", () => { closeSheet(); board.flip(); });
+  mFlipBtn.addEventListener("click", () => { closeSheet(); board.flip(); redrawMarks(); });
   mResignBtn.addEventListener("click", () => { closeSheet(); openResign(); });
 
   playWhiteBtn.addEventListener("click", () => startNewGame("w"));
@@ -1197,7 +1469,7 @@
   resignNoBtn.addEventListener("click", () => closeBoardOverlay(resignOverlay));
   resignYesBtn.addEventListener("click", () => {
     closeBoardOverlay(resignOverlay);
-    botSay("You resigned.");
+    botSayAnimated("You resigned.");
     resetToMain();
   });
 
@@ -1212,8 +1484,15 @@
   showIdleIntro();
   setGameUiState();
 
-  window.addEventListener("resize", () => board.resize());
-  setTimeout(() => board.resize(), 250);
+  function onResize(){
+    board.resize();
+    resizeArrowCanvas();
+  }
+  window.addEventListener("resize", onResize);
+  setTimeout(onResize, 250);
+
+  // also ensure canvas correct on load
+  resizeArrowCanvas();
 </script>
 </body>
 </html>
