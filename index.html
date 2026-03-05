@@ -47,8 +47,8 @@
       --green:#2f7d32;
       --greenHover:#3a8f3d;
 
-      /* more squared */
-      --sq:2px;
+      /* back to slightly rounded */
+      --sq:8px;
 
       /* thinner board border */
       --boardBorder:1px;
@@ -175,7 +175,7 @@
     #board{
       width:100%;
       height:100%;
-      border-radius:0; /* even squarer */
+      border-radius:var(--sq);
     }
 
     .white-1e1d7{ background:var(--light) !important; }
@@ -234,7 +234,12 @@
       gap:10px;
       flex-wrap:wrap;
     }
-    .endActions .btn{ flex:1 1 auto; min-width:140px; }
+    /* FIX: prevent button size changes when text becomes "Copied" */
+    .endActions .btn{
+      flex:0 0 50%;
+      width:50%;
+      min-width:0;
+    }
 
     .iconBtn{
       appearance:none;
@@ -435,6 +440,7 @@
       font-weight:900;
       flex:1 1 auto;
       min-width:110px;
+      white-space:nowrap; /* prevent wrap-based size changes */
     }
     .btn:hover{ background:var(--btnHover); }
     .btn:disabled{
@@ -683,7 +689,6 @@
   }
   applyBotAvatar();
 
-  // DOM
   const newGameBtn = document.getElementById("newGameBtn");
   const flipBtn = document.getElementById("flipBtn");
   const resignBtn = document.getElementById("resignBtn");
@@ -713,7 +718,6 @@
   sideOverlay.addEventListener("click", (e) => { if (e.target === sideOverlay) closeBoardOverlay(sideOverlay); });
   resignOverlay.addEventListener("click", (e) => { if (e.target === resignOverlay) closeBoardOverlay(resignOverlay); });
 
-  // End overlay
   const endOverlay = document.getElementById("endOverlay");
   const endTitle = document.getElementById("endTitle");
   const endBody = document.getElementById("endBody");
@@ -726,7 +730,7 @@
     endBody.textContent = "PGN is ready.";
     endOverlay.classList.add("open");
     endOverlay.setAttribute("aria-hidden","false");
-    // Reset copy button state whenever modal opens
+
     copyPgnBtn.disabled = false;
     copyPgnBtn.textContent = "Copy PGN";
   }
@@ -753,7 +757,7 @@
     try{
       await navigator.clipboard.writeText(pgn);
       endBody.textContent = "Copied!";
-      copyPgnBtn.disabled = true;              // greyed out + non-selectable
+      copyPgnBtn.disabled = true;
       copyPgnBtn.textContent = "Copied";
     }catch(err){
       try{
@@ -776,7 +780,7 @@
   }
   copyPgnBtn.addEventListener("click", copyPgnToClipboard);
 
-  // Mobile sheet
+  // Mobile sheet (kept)
   const mobileMenuBtn = document.getElementById("mobileMenuBtn");
   const mobileSheet = document.getElementById("mobileSheet");
   const sheetClose = document.getElementById("sheetClose");
@@ -786,7 +790,6 @@
   sheetClose.addEventListener("click", () => closeSheet());
   mobileSheet.addEventListener("click", (e) => { if (e.target === mobileSheet) closeSheet(); });
 
-  // Game
   const game = new Chess();
   let board;
 
@@ -794,7 +797,6 @@
   let engineColor = "b";
   let gameStarted = false;
 
-  // Stockfish
   const sf = new Worker("./stockfish10.js");
   let engineReady = false;
   let engineThinking = false;
@@ -809,12 +811,8 @@
       newGameBtn.disabled = true;
       mNewGameBtn.disabled = true;
     }
-
     resignBtn.disabled = !gameStarted;
     mResignBtn.disabled = !gameStarted;
-
-    flipBtn.disabled = false;
-    mFlipBtn.disabled = false;
   }
 
   function speakChecksAndEnds(){
@@ -987,7 +985,6 @@
       }
     };
 
-    // swapped
     paint(capturedTopEl, capturedByBlack, "w", "Captured: —");
     paint(capturedBottomEl, capturedByWhite, "b", "Lost: —");
   }
@@ -1113,7 +1110,6 @@
     startNewGame(playerColor);
   });
 
-  // Initial state
   renderMoves();
   renderCaptured();
   clearChat();
