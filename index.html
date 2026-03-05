@@ -13,19 +13,6 @@
   <!-- chess.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 
-  <!-- Stockfish debug (optional) -->
-  <script>
-    fetch("/chess/stockfish10.js?v=999")
-      .then(r => r.text())
-      .then(t => {
-        console.log("stockfish10.js length:", t.length);
-        console.log("contains 'function Stockfish':", t.includes("function Stockfish"));
-        console.log("contains 'var Stockfish':", t.includes("var Stockfish"));
-        console.log("first 120 chars:", t.slice(0,120));
-      })
-      .catch(e => console.error("fetch stockfish10.js failed", e));
-  </script>
-
   <style>
     :root{
       --bg:#302e2b;
@@ -45,14 +32,15 @@
       --green:#2f7d32;
       --greenHover:#3a8f3d;
 
-      /* slightly rounded */
       --sq:6px;
-
       --boardBorder:1px;
 
-      /* chat bubble */
-      --bubbleBg:#f2f2f2;
-      --bubbleText:#1b1b1b;
+      /* sidebar sizing */
+      --sidebarW: 420px;
+
+      /* bot toast */
+      --toastBg: rgba(242,242,242,.96);
+      --toastText:#141414;
     }
 
     *{box-sizing:border-box}
@@ -70,14 +58,26 @@
       width:min(1320px, 100%);
       margin:0 auto;
       display:grid;
-      grid-template-columns: 1fr 420px; /* wider sidebar */
+      grid-template-columns: 1fr var(--sidebarW);
       gap:16px;
       padding:18px;
       align-items:start;
     }
 
+    /* LEFT AREA */
     .left{
       height:calc(100vh - 36px);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-width:0;
+      align-items:center; /* center board column */
+    }
+
+    /* Board column: everything (topbar + strips + board) locked to board width */
+    .boardCol{
+      width:min(100%, calc(100vh - 36px - 56px - 40px - 40px - 20px));
+      max-width:760px;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -85,6 +85,7 @@
     }
 
     .playerBar{
+      width:100%;
       background:var(--panel);
       border:1px solid var(--line);
       border-radius:var(--sq);
@@ -93,12 +94,19 @@
       align-items:center;
       gap:12px;
       min-height:56px;
-      flex:0 0 auto;
     }
 
-    .playerMeta{ display:flex; align-items:center; gap:10px; min-width:0; }
+    .botLink{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:inherit;
+      text-decoration:none;
+      min-width:0;
+    }
+    .botLink:hover .name{ text-decoration:underline; }
 
-    .avatar{
+    .topAvatar{
       width:36px; height:36px;
       border-radius:var(--sq);
       background:var(--panel2);
@@ -107,10 +115,10 @@
       place-items:center;
       font-weight:800;
       user-select:none;
-      flex:0 0 auto;
       overflow:hidden;
+      flex:0 0 auto;
     }
-    .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+    .topAvatar img{width:100%;height:100%;object-fit:cover;display:block;}
 
     .names{ line-height:1.1; min-width:0; }
     .names .name{
@@ -129,17 +137,8 @@
     }
     .flag{ font-size:14px; opacity:.95; }
 
-    .botLink{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      color:inherit;
-      text-decoration:none;
-      min-width:0;
-    }
-    .botLink:hover .name{ text-decoration:underline; }
-
     .capturedStrip{
+      width:100%;
       background:var(--panel);
       border:1px solid var(--line);
       border-radius:var(--sq);
@@ -149,7 +148,6 @@
       align-items:center;
       min-height:40px;
       overflow:hidden;
-      flex:0 0 auto;
     }
     .capturedStrip img{ width:22px; height:22px; display:block; opacity:.95; }
     .capSpacer{ flex:1 1 auto; }
@@ -163,16 +161,12 @@
     }
 
     .boardWrap{
-      flex:1 1 auto;
-      min-height:0;
-      display:grid;
-      place-items:center;
+      width:100%;
       position:relative;
     }
 
     .boardBox{
-      width:min(100%, calc(100vh - 56px - 40px - 40px - 36px - 20px));
-      max-width:760px;
+      width:100%;
       aspect-ratio:1 / 1;
       position:relative;
       border-radius:var(--sq);
@@ -228,7 +222,6 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
-      background:var(--panel);
     }
     .endTitle{ font-weight:900; }
     .endBody{ padding:12px; color:var(--muted); line-height:1.4; font-size:13px; }
@@ -237,7 +230,7 @@
       border-top:1px solid var(--line);
       display:flex;
       gap:10px;
-      flex-wrap:nowrap;          /* keep side-by-side */
+      flex-wrap:nowrap;
     }
     .endActions .btn{
       flex:1 1 0;
@@ -284,7 +277,6 @@
       align-items:center;
       justify-content:space-between;
       gap:10px;
-      background:var(--panel);
     }
     .boardModalTitle{ font-weight:900; letter-spacing:.01em; }
     .boardModalBody{ padding:14px 12px; color:var(--muted); line-height:1.4; }
@@ -298,7 +290,44 @@
     }
     .boardModalActions .btn{ flex:1 1 0; min-width:160px; }
 
-    /* Sidebar */
+    /* Bot toast (single message, auto fades) */
+    .botToastWrap{
+      position:absolute;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      z-index:45;
+      pointer-events:none;
+      display:flex;
+      justify-content:flex-start;
+    }
+    .botToast{
+      display:none;
+      max-width:min(520px, 92%);
+      padding:10px 12px;
+      border-radius:12px;
+      background:var(--toastBg);
+      color:var(--toastText);
+      font-size:14px;
+      line-height:1.25;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      opacity:0;
+      transform:translateY(6px);
+      will-change: opacity, transform;
+    }
+    .botToast.show{
+      display:block;
+      animation: toastIn .12s ease-out forwards, toastOut .16s ease-in forwards;
+      animation-delay: 0s, 4.84s; /* show ~5s, then fade quickly */
+    }
+    @keyframes toastIn{
+      to{ opacity:1; transform:translateY(0); }
+    }
+    @keyframes toastOut{
+      to{ opacity:0; transform:translateY(6px); }
+    }
+
+    /* RIGHT SIDEBAR */
     .side{
       height:calc(100vh - 36px);
       display:flex;
@@ -315,7 +344,7 @@
       border-bottom:1px solid var(--line);
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:12px;
       flex:0 0 auto;
     }
 
@@ -325,7 +354,6 @@
       justify-content:space-between;
       gap:10px;
     }
-
     .sideHeader .title{
       font-weight:900;
       white-space:nowrap;
@@ -336,20 +364,20 @@
       gap:8px;
     }
 
-    /* Chat row with avatar at left */
+    /* chat area in sidebar: avatar bigger, NO border */
     .chatRow{
       display:grid;
-      grid-template-columns: 64px 1fr;
+      grid-template-columns: 96px 1fr;
       gap:12px;
       align-items:start;
-      min-height:220px;
+      min-height:120px;
     }
     .chatAvatar{
-      width:64px;
-      height:64px;
-      border-radius:var(--sq);
-      border:1px solid var(--line);
-      background:var(--panel2);
+      width:96px;
+      height:96px;
+      border-radius:12px;
+      border:none;          /* no border */
+      background:transparent;
       overflow:hidden;
       display:grid;
       place-items:center;
@@ -358,42 +386,29 @@
     }
     .chatAvatar img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-    /* chat area: no border, no different color */
-    .chat{
-      background:transparent;
-      border:none;
-      border-radius:0;
-      padding:0;
+    /* Not scrollable; only last message shown */
+    .chatLast{
+      min-height:96px;
       display:flex;
-      flex-direction:column;
-      gap:10px;
-      height:220px;
-      overflow:auto;
+      align-items:flex-start;
+      justify-content:flex-start;
+      padding-top:2px;
     }
-
-    .chat::-webkit-scrollbar{ width:10px; }
-    .chat::-webkit-scrollbar-track{ background:transparent; }
-    .chat::-webkit-scrollbar-thumb{
-      background:rgba(255,255,255,.14);
-      border:3px solid transparent;
-      background-clip:padding-box;
-      border-radius:999px;
-    }
-    .chat:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.20); }
-    .chat{ scrollbar-width:thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
-
-    /* ONLY bot bubbles; white with dark text */
-    .bubble{
-      max-width:92%;
+    .chatLastText{
+      max-width:100%;
       padding:10px 12px;
       border-radius:12px;
-      border:1px solid rgba(0,0,0,.08);
-      background:var(--bubbleBg);
-      color:var(--bubbleText);
-      font-size:13px;
+      background:rgba(242,242,242,.96);
+      color:#141414;
+      font-size:14px;
       line-height:1.25;
-      white-space:pre-wrap;
-      align-self:flex-start;
+      box-shadow: 0 10px 28px rgba(0,0,0,.25);
+      opacity:0;
+      transform:translateY(6px);
+    }
+    .chatLastText.show{
+      animation: toastIn .12s ease-out forwards, toastOut .16s ease-in forwards;
+      animation-delay: 0s, 4.84s;
     }
 
     .movesTitle{
@@ -490,7 +505,13 @@
       }
       .side{ display:none; }
       .left{ height:calc(100dvh - 24px); }
-      .boardBox{ width:100%; max-width:none; }
+
+      /* board column becomes full width */
+      .boardCol{
+        width:100%;
+        max-width:none;
+      }
+
       #capturedBottom{
         margin-bottom: calc(14px + 60px + 14px + max(env(safe-area-inset-bottom), 0px));
       }
@@ -577,10 +598,10 @@
 <body>
   <div class="app">
     <section class="left">
-      <div class="playerBar">
-        <a class="botLink" href="https://www.chess.com/member/krisper" target="_blank" rel="noopener noreferrer" aria-label="krisper on chess.com">
-          <div class="playerMeta">
-            <div class="avatar" aria-hidden="true" id="topBotAvatar">K</div>
+      <div class="boardCol">
+        <div class="playerBar">
+          <a class="botLink" href="https://www.chess.com/member/krisper" target="_blank" rel="noopener noreferrer" aria-label="krisper on chess.com">
+            <div class="topAvatar" aria-hidden="true" id="topBotAvatar">K</div>
             <div class="names">
               <div class="name" id="botName">krisper</div>
               <div class="elo">
@@ -588,61 +609,67 @@
                 <span class="flag" aria-label="flag" title="Canada">🇨🇦</span>
               </div>
             </div>
-          </div>
-        </a>
-      </div>
+          </a>
+        </div>
 
-      <div class="capturedStrip" id="capturedTop"></div>
+        <div class="capturedStrip" id="capturedTop"></div>
 
-      <div class="boardWrap">
-        <div class="boardBox" id="boardBox">
-          <div id="board"></div>
+        <div class="boardWrap">
+          <div class="boardBox" id="boardBox">
+            <div id="board"></div>
 
-          <div class="endOverlay" id="endOverlay" aria-hidden="true">
-            <div class="endCard" role="dialog" aria-modal="true" aria-label="Game over">
-              <div class="endHead">
-                <div class="endTitle" id="endTitle">Game Over</div>
-                <button class="iconBtn" type="button" id="endCloseBtn">✕</button>
-              </div>
-              <div class="endBody" id="endBody">PGN is ready.</div>
-              <div class="endActions">
-                <button class="btn green" type="button" id="rematchBtn">Rematch</button>
-                <button class="btn" type="button" id="copyPgnBtn">Copy PGN</button>
+            <!-- Bot toast on board (optional) -->
+            <div class="botToastWrap" aria-hidden="true">
+              <div class="botToast" id="boardToast"></div>
+            </div>
+
+            <div class="endOverlay" id="endOverlay" aria-hidden="true">
+              <div class="endCard" role="dialog" aria-modal="true" aria-label="Game over">
+                <div class="endHead">
+                  <div class="endTitle" id="endTitle">Game Over</div>
+                  <button class="iconBtn" type="button" id="endCloseBtn">✕</button>
+                </div>
+                <div class="endBody" id="endBody">PGN is ready.</div>
+                <div class="endActions">
+                  <button class="btn green" type="button" id="rematchBtn">Rematch</button>
+                  <button class="btn" type="button" id="copyPgnBtn">Copy PGN</button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="boardModalOverlay" id="sideOverlay" aria-hidden="true">
-            <div class="boardModal" role="dialog" aria-modal="true" aria-label="New game">
-              <div class="boardModalHead">
-                <div class="boardModalTitle">New Game</div>
-                <button class="iconBtn" type="button" id="sideCloseBtn">✕</button>
-              </div>
-              <div class="boardModalBody">Choose a side to play.</div>
-              <div class="boardModalActions">
-                <button class="btn" type="button" id="playWhiteBtn">Play as White</button>
-                <button class="btn" type="button" id="playBlackBtn">Play as Black</button>
+            <div class="boardModalOverlay" id="sideOverlay" aria-hidden="true">
+              <div class="boardModal" role="dialog" aria-modal="true" aria-label="New game">
+                <div class="boardModalHead">
+                  <div class="boardModalTitle">New Game</div>
+                  <button class="iconBtn" type="button" id="sideCloseBtn">✕</button>
+                </div>
+                <div class="boardModalBody">Choose a side to play.</div>
+                <div class="boardModalActions">
+                  <button class="btn" type="button" id="playWhiteBtn">Play as White</button>
+                  <button class="btn" type="button" id="playBlackBtn">Play as Black</button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="boardModalOverlay" id="resignOverlay" aria-hidden="true">
-            <div class="boardModal" role="dialog" aria-modal="true" aria-label="Resign">
-              <div class="boardModalHead">
-                <div class="boardModalTitle">Resign?</div>
-                <button class="iconBtn" type="button" id="resignCloseBtn">✕</button>
-              </div>
-              <div class="boardModalBody">Are you sure you want to resign?</div>
-              <div class="boardModalActions">
-                <button class="btn" type="button" id="resignNoBtn">No</button>
-                <button class="btn danger" type="button" id="resignYesBtn">Yes</button>
+            <div class="boardModalOverlay" id="resignOverlay" aria-hidden="true">
+              <div class="boardModal" role="dialog" aria-modal="true" aria-label="Resign">
+                <div class="boardModalHead">
+                  <div class="boardModalTitle">Resign?</div>
+                  <button class="iconBtn" type="button" id="resignCloseBtn">✕</button>
+                </div>
+                <div class="boardModalBody">Are you sure you want to resign?</div>
+                <div class="boardModalActions">
+                  <button class="btn" type="button" id="resignNoBtn">No</button>
+                  <button class="btn danger" type="button" id="resignYesBtn">Yes</button>
+                </div>
               </div>
             </div>
+
           </div>
         </div>
-      </div>
 
-      <div class="capturedStrip" id="capturedBottom"></div>
+        <div class="capturedStrip" id="capturedBottom"></div>
+      </div>
     </section>
 
     <aside class="side">
@@ -655,7 +682,9 @@
 
         <div class="chatRow">
           <div class="chatAvatar" id="sideChatAvatar" aria-hidden="true">K</div>
-          <div class="chat" id="chat"></div>
+          <div class="chatLast">
+            <div class="chatLastText" id="chatLastText"></div>
+          </div>
         </div>
       </div>
 
@@ -690,20 +719,21 @@
   if (typeof Chess === "undefined") hardFail("chess.js failed to load.");
   if (typeof ChessBoard === "undefined") hardFail("chessboard.js failed to load.");
 
-  const BOT_AVATAR_URL = ""; // e.g. "./img/bot.png"
+  // Two different images:
+  const TOP_AVATAR_URL  = ""; // e.g. "./img/top-avatar.png"
+  const CHAT_AVATAR_URL = ""; // e.g. "./img/chat-avatar.png"  (bigger, no border)
 
-  function setAvatar(el){
+  function setAvatar(el, url, fallbackLetter="K"){
     if (!el) return;
-    el.innerHTML = BOT_AVATAR_URL ? `<img src="${BOT_AVATAR_URL}" alt="Bot avatar">` : "K";
+    el.innerHTML = url ? `<img src="${url}" alt="Avatar">` : fallbackLetter;
   }
-  setAvatar(document.getElementById("topBotAvatar"));
-  setAvatar(document.getElementById("sideChatAvatar"));
+  setAvatar(document.getElementById("topBotAvatar"), TOP_AVATAR_URL, "K");
+  setAvatar(document.getElementById("sideChatAvatar"), CHAT_AVATAR_URL, "K");
 
   // DOM
   const newGameBtn = document.getElementById("newGameBtn");
   const flipBtn = document.getElementById("flipBtn");
   const resignBtn = document.getElementById("resignBtn");
-
   const mNewGameBtn = document.getElementById("mNewGameBtn");
   const mFlipBtn = document.getElementById("mFlipBtn");
   const mResignBtn = document.getElementById("mResignBtn");
@@ -752,20 +782,42 @@
   endCloseBtn.addEventListener("click", closeEndOverlay);
   endOverlay.addEventListener("click", (e) => { if (e.target === endOverlay) closeEndOverlay(); });
 
-  // Chat (BOT ONLY)
-  const chatEl = document.getElementById("chat");
-  function clearChat(){ chatEl.innerHTML = ""; }
-  function botSay(text){
-    const div = document.createElement("div");
-    div.className = "bubble";
-    div.textContent = text;
-    chatEl.appendChild(div);
-    chatEl.scrollTop = chatEl.scrollHeight;
+  // Single-message chat (sidebar) + optional board toast
+  const chatLastText = document.getElementById("chatLastText");
+  const boardToast = document.getElementById("boardToast");
+
+  let toastTimer = null;
+  let toastSeq = 0;
+
+  function showEphemeral(el, text){
+    if (!el) return;
+    const mySeq = ++toastSeq;
+
+    // restart animation by removing/reflowing/adding class
+    el.textContent = text;
+    el.classList.remove("show");
+    // force reflow
+    void el.offsetWidth;
+    el.classList.add("show");
+
+    // hard-hide after ~5s to ensure it's gone even if animations vary
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      if (toastSeq !== mySeq) return;
+      el.classList.remove("show");
+      el.textContent = "";
+    }, 5200);
   }
 
-  // Copy PGN
-  const game = new Chess();
+  function botSay(text){
+    // sidebar "last message"
+    showEphemeral(chatLastText, text);
+    // optional on-board toast too (comment out if you don't want it)
+    showEphemeral(boardToast, text);
+  }
 
+  // Game + PGN copy
+  const game = new Chess();
   async function copyPgnToClipboard(){
     const pgn = game.pgn();
     try{
@@ -868,12 +920,10 @@
       sf.postMessage("isready");
       return;
     }
-
     if (line === "readyok") {
       engineReady = true;
       return;
     }
-
     if (typeof line === "string" && line.startsWith("bestmove ")) {
       const uci = line.split(" ")[1];
 
@@ -890,7 +940,9 @@
             board.position(game.fen(), true);
             renderMoves();
             renderCaptured();
-            botSay("Played " + mv.san);
+
+            // REMOVE move bubbles completely (per request)
+            // botSay("Played " + mv.san);
 
             const spoke = speakChecksAndEnds();
             if (!spoke && !game.game_over()) botSay("Your move.");
@@ -1039,9 +1091,8 @@
     renderMoves();
     renderCaptured();
 
-    clearChat();
     botSay("Hey, I'm Krisper.");
-    botSay("Press New Game to begin.");
+    setTimeout(() => botSay("Press New Game to begin."), 700);
 
     setGameUiState();
   }
@@ -1064,7 +1115,6 @@
     renderMoves();
     renderCaptured();
 
-    clearChat();
     botSay("Let's play.");
 
     setGameUiState();
@@ -1072,7 +1122,8 @@
     if (engineReady && game.turn() === engineColor) requestEngineMove();
   }
 
-  // Init board
+  // Board init
+  const PIECE_THEME = "./img/chesspieces/wikipedia/{piece}.png";
   board = ChessBoard("board", {
     draggable: true,
     position: "start",
@@ -1101,11 +1152,10 @@
       if (mv === null) return "snapback";
 
       board.position(game.fen(), true);
-
       renderMoves();
       renderCaptured();
 
-      // no user bubbles anymore
+      // no move bubbles
       speakChecksAndEnds();
       setTimeout(requestEngineMove, 60);
       return;
@@ -1114,15 +1164,9 @@
     onSnapEnd: () => board.position(game.fen())
   });
 
-  // New game / resign buttons
-  function openNewGame(){
-    if (gameStarted) return;
-    openBoardOverlay(sideOverlay);
-  }
-  function openResign(){
-    if (!gameStarted) return;
-    openBoardOverlay(resignOverlay);
-  }
+  // Buttons
+  function openNewGame(){ if (!gameStarted) openBoardOverlay(sideOverlay); }
+  function openResign(){ if (gameStarted) openBoardOverlay(resignOverlay); }
 
   newGameBtn.addEventListener("click", openNewGame);
   flipBtn.addEventListener("click", () => board.flip());
@@ -1147,13 +1191,14 @@
     startNewGame(playerColor);
   });
 
-  // initial
+  // Initial state
   renderMoves();
   renderCaptured();
-  clearChat();
-  botSay("Hey, I'm Krisper.");
-  botSay("Press New Game to begin.");
   setGameUiState();
+
+  // first-load messages: only last visible with fade
+  botSay("Hey, I'm Krisper.");
+  setTimeout(() => botSay("Press New Game to begin."), 700);
 
   window.addEventListener("resize", () => board.resize());
   setTimeout(() => board.resize(), 250);
