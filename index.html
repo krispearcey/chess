@@ -336,20 +336,20 @@
       gap:8px;
     }
 
-    /* Chat row with avatar at left */
+    /* Chat row with avatar at left (BIGGER) */
     .chatRow{
       display:grid;
-      grid-template-columns: 64px 1fr;
+      grid-template-columns: 96px 1fr;
       gap:12px;
       align-items:start;
       min-height:220px;
     }
     .chatAvatar{
-      width:64px;
-      height:64px;
+      width:96px;
+      height:96px;
       border-radius:var(--sq);
-      border:1px solid var(--line);
-      background:var(--panel2);
+      border:none;                 /* no border */
+      background:transparent;       /* image will fill */
       overflow:hidden;
       display:grid;
       place-items:center;
@@ -358,7 +358,7 @@
     }
     .chatAvatar img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-    /* chat area: no border, no different color */
+    /* chat area: NOT scrollable; only last message shows; fades out */
     .chat{
       background:transparent;
       border:none;
@@ -366,21 +366,11 @@
       padding:0;
       display:flex;
       flex-direction:column;
+      justify-content:flex-start;
       gap:10px;
       height:220px;
-      overflow:auto;
+      overflow:hidden; /* no scrolling */
     }
-
-    .chat::-webkit-scrollbar{ width:10px; }
-    .chat::-webkit-scrollbar-track{ background:transparent; }
-    .chat::-webkit-scrollbar-thumb{
-      background:rgba(255,255,255,.14);
-      border:3px solid transparent;
-      background-clip:padding-box;
-      border-radius:999px;
-    }
-    .chat:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.20); }
-    .chat{ scrollbar-width:thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
 
     /* ONLY bot bubbles; white with dark text */
     .bubble{
@@ -394,6 +384,17 @@
       line-height:1.25;
       white-space:pre-wrap;
       align-self:flex-start;
+
+      opacity:0;
+      animation: bubbleLife 5.35s ease forwards; /* 5s hold + quick fade */
+      will-change: opacity, transform;
+    }
+
+    @keyframes bubbleLife{
+      0%   { opacity:0; transform:translateY(2px); }
+      6%   { opacity:1; transform:translateY(0); }
+      92%  { opacity:1; transform:translateY(0); }
+      100% { opacity:0; transform:translateY(-1px); }
     }
 
     .movesTitle{
@@ -690,14 +691,18 @@
   if (typeof Chess === "undefined") hardFail("chess.js failed to load.");
   if (typeof ChessBoard === "undefined") hardFail("chessboard.js failed to load.");
 
-  const BOT_AVATAR_URL = ""; // e.g. "./img/bot.png"
+  // Avatars
+  const TOP_AVATAR_URL  = "./krisper-avatar.png"; // top bar
+  const CHAT_AVATAR_URL = "./krisper.png";        // sidebar chat
 
-  function setAvatar(el){
+  function setImgAvatar(el, url, fallbackLetter){
     if (!el) return;
-    el.innerHTML = BOT_AVATAR_URL ? `<img src="${BOT_AVATAR_URL}" alt="Bot avatar">` : "K";
+    el.innerHTML = url
+      ? `<img src="${url}" alt="Avatar">`
+      : (fallbackLetter || "K");
   }
-  setAvatar(document.getElementById("topBotAvatar"));
-  setAvatar(document.getElementById("sideChatAvatar"));
+  setImgAvatar(document.getElementById("topBotAvatar"), TOP_AVATAR_URL, "K");
+  setImgAvatar(document.getElementById("sideChatAvatar"), CHAT_AVATAR_URL, "K");
 
   // DOM
   const newGameBtn = document.getElementById("newGameBtn");
@@ -752,15 +757,60 @@
   endCloseBtn.addEventListener("click", closeEndOverlay);
   endOverlay.addEventListener("click", (e) => { if (e.target === endOverlay) closeEndOverlay(); });
 
-  // Chat (BOT ONLY)
+  // Chat (BOT ONLY) — only last message, fades after 5s
   const chatEl = document.getElementById("chat");
-  function clearChat(){ chatEl.innerHTML = ""; }
+  let chatTimer = null;
+
+  function clearChat(){
+    chatEl.innerHTML = "";
+    if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
+  }
+
   function botSay(text){
+    // only keep the last message visible
+    chatEl.innerHTML = "";
+
     const div = document.createElement("div");
     div.className = "bubble";
     div.textContent = text;
     chatEl.appendChild(div);
-    chatEl.scrollTop = chatEl.scrollHeight;
+
+    // remove after animation completes so the box stays empty
+    if (chatTimer) clearTimeout(chatTimer);
+    chatTimer = setTimeout(() => {
+      if (div && div.parentNode === chatEl) div.remove();
+    }, 5400); // matches bubbleLife duration
+  }
+
+  // Periodic chatter every ~3–5 full moves (≈6–10 plies), only if no check/end
+  const randomLines = [
+    "When did you start playing chess?",
+    "My dog is here.",
+    "You've activated my trap card.",
+    "@@@",
+    "I'm going to have to study this one later."
+  ];
+  function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  let plySinceChatter = 0;
+  let nextChatterAtPlies = randInt(6, 10);
+
+  function resetChatter(){
+    plySinceChatter = 0;
+    nextChatterAtPlies = randInt(6, 10);
+  }
+
+  function maybeRandomChatter(){
+    if (!gameStarted) return;
+    if (game.game_over()) return;
+    if (game.in_check()) return; // don't chatter on check positions
+    plySinceChatter++;
+
+    if (plySinceChatter >= nextChatterAtPlies){
+      botSay(pick(randomLines));
+      resetChatter();
+    }
   }
 
   // Copy PGN
@@ -890,10 +940,10 @@
             board.position(game.fen(), true);
             renderMoves();
             renderCaptured();
-            botSay("Played " + mv.san);
 
+            // REMOVE move bubbles ("Played ...", "Your move.") — keep only check/end + periodic chatter
             const spoke = speakChecksAndEnds();
-            if (!spoke && !game.game_over()) botSay("Your move.");
+            if (!spoke && !game.game_over()) maybeRandomChatter();
           }
         }
       }
@@ -1040,8 +1090,10 @@
     renderCaptured();
 
     clearChat();
+    resetChatter();
+
     botSay("Hey, I'm Krisper.");
-    botSay("Press New Game to begin.");
+    setTimeout(() => botSay("Press New Game to begin."), 650);
 
     setGameUiState();
   }
@@ -1065,6 +1117,7 @@
     renderCaptured();
 
     clearChat();
+    resetChatter();
     botSay("Let's play.");
 
     setGameUiState();
@@ -1105,8 +1158,10 @@
       renderMoves();
       renderCaptured();
 
-      // no user bubbles anymore
-      speakChecksAndEnds();
+      // REMOVE move bubbles for moves — keep only check/end + periodic chatter
+      const spoke = speakChecksAndEnds();
+      if (!spoke && !game.game_over()) maybeRandomChatter();
+
       setTimeout(requestEngineMove, 60);
       return;
     },
@@ -1151,8 +1206,9 @@
   renderMoves();
   renderCaptured();
   clearChat();
+  resetChatter();
   botSay("Hey, I'm Krisper.");
-  botSay("Press New Game to begin.");
+  setTimeout(() => botSay("Press New Game to begin."), 650);
   setGameUiState();
 
   window.addEventListener("resize", () => board.resize());
