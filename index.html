@@ -36,7 +36,6 @@
       --greenHover:#3a8f3d;
 
       --sq:6px;
-      --boardBorder:1px;
 
       --bubbleBg:#f2f2f2;
       --bubbleText:#1b1b1b;
@@ -69,7 +68,7 @@
       height:calc(100vh - 36px);
       display:flex;
       flex-direction:column;
-      gap:6px;                 /* tighter vertical spacing */
+      gap:2px;                 /* MUCH closer */
       min-width:0;
       align-items:center;
     }
@@ -78,27 +77,26 @@
       width:var(--boardW);
       max-width:100%;
       padding:0;
-      pointer-events:none; /* keeps it feeling “flat”; links/buttons not needed here */
+      pointer-events:none;      /* flat */
     }
 
-    /* FLAT BARS (no bg, no outline) */
     .flatBar{
       width:100%;
       display:flex;
       align-items:flex-end;
-      gap:8px;                 /* tighter */
+      gap:6px;                  /* tighter */
       padding:0;
       min-height:0;
     }
 
-    /* pull content closer to the board (like your screenshot) */
+    /* zero out spacing to snug against board */
     .flatBar.top{ margin-bottom:0; }
     .flatBar.bottom{ margin-top:0; }
 
     .flatMeta{
       display:flex;
       align-items:flex-end;
-      gap:8px;                 /* tighter */
+      gap:6px;                  /* tighter */
       min-width:0;
       flex:1 1 auto;
     }
@@ -136,18 +134,17 @@
       line-height:1.05;
     }
 
-    /* captures inline after name/elo, aligned to elo baseline bottom */
     .capInline{
       display:flex;
       align-items:flex-end;
-      gap:6px;                 /* tighter */
-      margin-left:6px;         /* tighter */
+      gap:5px;
+      margin-left:4px;
       flex:0 0 auto;
     }
     .capIcons{
       display:flex;
       align-items:flex-end;
-      gap:2px;                 /* closer together (requested) */
+      gap:2px;                  /* closer together */
       flex-wrap:nowrap;
     }
     .capIcons img{
@@ -177,22 +174,24 @@
       place-items:center;
       position:relative;
       width:100%;
-      margin-top:-2px;         /* nudge board up a touch */
-      margin-bottom:-2px;      /* nudge board down a touch */
+      margin:0;                 /* remove extra vertical margins */
+      padding:0;
     }
 
     .boardBox{
-      width:min(100%, calc(100vh - 56px - 56px - 36px - 22px));
+      width:min(100%, calc(100vh - 56px - 56px - 36px - 10px));
       max-width:760px;
       aspect-ratio:1 / 1;
       position:relative;
       border-radius:var(--sq);
       overflow:hidden;
-      border:var(--boardBorder) solid rgba(255,255,255,.10);
+
+      border:none;              /* REMOVE BOARD BORDER (requested) */
       background:transparent;
     }
 
     #board{ width:100%; height:100%; border-radius:var(--sq); }
+
     .white-1e1d7{ background:var(--light) !important; }
     .black-3c85d{ background:var(--dark) !important; }
 
@@ -226,7 +225,7 @@
     .endCard{
       width:min(420px, 100%);
       background:var(--panel);
-      border:1px solid var(--line);
+      border:1px solid var(--line); /* keep borders for other stuff */
       border-radius:var(--sq);
       overflow:hidden;
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
@@ -242,7 +241,6 @@
     .endTitle{ font-weight:900; }
     .endBody{ padding:12px; color:var(--muted); line-height:1.4; font-size:13px; }
 
-    /* Rematch bigger on bottom */
     .endActions{
       padding:12px;
       border-top:1px solid var(--line);
@@ -251,13 +249,8 @@
       gap:10px;
       align-items:stretch;
     }
-    #rematchBtn{
-      height:52px;
-      font-size:15px;
-    }
-    #copyPgnBtn{
-      height:44px;
-    }
+    #rematchBtn{ height:52px; font-size:15px; }
+    #copyPgnBtn{ height:44px; }
 
     .xBtn{
       appearance:none;
@@ -730,7 +723,6 @@
                 <div class="name">You</div>
                 <div class="elo">
                   <span>?</span>
-                  <!-- removed 🌐 -->
                 </div>
               </div>
             </div>
@@ -943,11 +935,6 @@
     "@@@",
     "I'm going to have to study this one later."
   ];
-  const checkLines = [
-    "Check.",
-    "Check, m8.",
-    "Do you see what I'm trying to do?"
-  ];
   function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
@@ -962,7 +949,7 @@
   function queueChatterIfDue(gameStarted, game){
     if (!gameStarted) return;
     if (game.game_over()) return;
-    if (game.in_check()) return;
+    if (game.in_check()) return;     // check messages removed entirely
     if (!canSpeakNow()) return;
 
     if (fullMovesSinceLastChatterFade >= nextChatterAfterMoves){
@@ -1016,7 +1003,7 @@
     mResignBtn.disabled = !gameStarted;
   }
 
-  async function speakChecksAndEnds(){
+  async function speakEndsOnly(){
     if (game.in_checkmate()){
       const mated = game.turn();
       if (mated === engineColor) {
@@ -1031,19 +1018,6 @@
     if (game.in_stalemate()){
       await transitionToBubble("Good game.");
       return true;
-    }
-    if (game.in_check()){
-      const sideInCheck = game.turn();
-
-      // NO message when user puts bot in check:
-      // That is: if engineColor is in check, do nothing.
-      if (sideInCheck === engineColor) return true;
-
-      // If user is in check (engine just checked user), say random line.
-      if (sideInCheck === playerColor){
-        await transitionToBubble(pick(checkLines)); // fades current bubble first
-        return true;
-      }
     }
     return false;
   }
@@ -1209,7 +1183,7 @@
             renderMoves();
             renderCapturedToBars();
 
-            const spoke = await speakChecksAndEnds();
+            const spoke = await speakEndsOnly();
             if (!spoke && !game.game_over()){
               if (game.turn() === "w" && canSpeakNow()) {
                 fullMovesSinceLastChatterFade++;
@@ -1330,7 +1304,7 @@
       renderMoves();
       renderCapturedToBars();
 
-      const spoke = await speakChecksAndEnds();
+      const spoke = await speakEndsOnly();
       if (!spoke && !game.game_over()){
         queueChatterIfDue(gameStarted, game);
       }
@@ -1345,13 +1319,17 @@
   // Buttons
   function openNewGame(){
     if (gameStarted) return;
+    closeBoardOverlay(infoOverlay);
     openBoardOverlay(sideOverlay);
   }
   function openResign(){
     if (!gameStarted) return;
+    closeBoardOverlay(infoOverlay);
     openBoardOverlay(resignOverlay);
   }
   function openInfo(){
+    closeBoardOverlay(sideOverlay);
+    closeBoardOverlay(resignOverlay);
     openBoardOverlay(infoOverlay);
   }
 
