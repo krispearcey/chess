@@ -13,7 +13,7 @@
   <!-- chess.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 
-  <!-- Font Awesome (for icons) -->
+  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <style>
@@ -79,13 +79,19 @@
       padding:10px 12px;
       display:flex;
       align-items:center;
-      justify-content:space-between;
       gap:12px;
       min-height:56px;
       flex:0 0 auto;
+      min-width:0;
     }
 
-    .playerMeta{ display:flex; align-items:center; gap:10px; min-width:0; }
+    .playerMeta{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      flex:1 1 auto;
+    }
 
     .avatar{
       width:36px; height:36px;
@@ -101,7 +107,7 @@
     }
     .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
 
-    .names{ line-height:1.1; min-width:0; display:flex; align-items:center; gap:12px; }
+    .names{ line-height:1.1; min-width:0; }
     .nameBlock{ min-width:0; }
     .nameBlock .name{
       font-weight:800;
@@ -116,31 +122,31 @@
       display:flex;
       align-items:center;
       gap:8px;
+      white-space:nowrap;
     }
     .flag{ font-size:14px; opacity:.95; }
 
-    /* Captures now live in the player bars (right of names) */
-    .barRight{
-      margin-left:auto;
+    /* Captures/points INLINE after name/elo (like your screenshot) */
+    .capInline{
       display:flex;
       align-items:center;
-      gap:10px;
+      gap:8px;
+      margin-left:12px;
       min-width:0;
+      flex:0 0 auto;
     }
     .capIcons{
       display:flex;
       align-items:center;
-      gap:2px;                 /* tighter */
+      gap:2px; /* tighter */
       flex-wrap:nowrap;
-      overflow:hidden;
-      max-width:220px;
+      min-width:0;
     }
     .capIcons img{
       width:18px;
       height:18px;
       display:block;
       opacity:.95;
-      margin:0;                /* no spacing */
     }
     .capScore{
       font-size:12px;
@@ -237,13 +243,8 @@
       gap:10px;
       flex-wrap:nowrap;
     }
-    .endActions .btn{
-      flex:1 1 0;
-      min-width:0;
-      white-space:nowrap;
-    }
 
-    /* Close "X" buttons: no square around them */
+    /* Close "X" buttons: no square */
     .xBtn{
       appearance:none;
       border:none;
@@ -290,15 +291,23 @@
     }
     .boardModalTitle{ font-weight:900; letter-spacing:.01em; }
     .boardModalBody{ padding:14px 12px; color:var(--muted); line-height:1.4; }
+
+    /* Ensure BOTH new game buttons are identical size */
     .boardModalActions{
       padding:12px;
       border-top:1px solid var(--line);
       display:flex;
       gap:10px;
-      justify-content:flex-end;
-      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:stretch;
     }
-    .boardModalActions .btn{ flex:1 1 0; min-width:160px; }
+    .boardModalActions .btn{
+      flex:1 1 0;
+      min-width:0;
+      height:48px;              /* force equal height */
+      padding:0 14px;           /* same padding */
+      line-height:1;
+    }
 
     /* Sidebar */
     .side{
@@ -400,6 +409,15 @@
       transform:none !important;
     }
 
+    /* quick fade used for "Let's play." after user's first move */
+    .bubble.fadeOut{
+      animation: quickFade .22s ease forwards !important;
+    }
+    @keyframes quickFade{
+      from{ opacity:1; transform:translateY(0); }
+      to  { opacity:0; transform:translateY(-1px); }
+    }
+
     .movesTitle{
       padding:10px 12px 8px;
       color:var(--muted);
@@ -450,7 +468,7 @@
       padding:4px 6px;
     }
 
-    /* Buttons row in sidebar (New Game hidden during game, as before) */
+    /* Controls */
     .sideBottom{
       padding:12px;
       border-top:1px solid var(--line);
@@ -608,6 +626,7 @@
         <a class="botLink" href="https://www.chess.com/member/krisper" target="_blank" rel="noopener noreferrer" aria-label="krisper on chess.com">
           <div class="playerMeta">
             <div class="avatar" aria-hidden="true" id="topBotAvatar">K</div>
+
             <div class="names">
               <div class="nameBlock">
                 <div class="name" id="botName">krisper</div>
@@ -617,13 +636,14 @@
                 </div>
               </div>
             </div>
+
+            <!-- captures inline after name/elo -->
+            <div class="capInline" aria-label="Bot captures">
+              <div class="capIcons" id="capTopIcons"></div>
+              <div class="capScore" id="capTopScore"></div>
+            </div>
           </div>
         </a>
-
-        <div class="barRight">
-          <div class="capIcons" id="capTopIcons"></div>
-          <div class="capScore" id="capTopScore"></div>
-        </div>
       </div>
 
       <div class="boardWrap">
@@ -666,7 +686,7 @@
               </div>
               <div class="boardModalBody">Are you sure you want to resign?</div>
               <div class="boardModalActions">
-                <!-- YES on the LEFT, NO on the RIGHT -->
+                <!-- YES left, NO right -->
                 <button class="btn danger" type="button" id="resignYesBtn">Yes</button>
                 <button class="btn" type="button" id="resignNoBtn">No</button>
               </div>
@@ -680,7 +700,7 @@
                 <button class="xBtn" type="button" id="infoCloseBtn" aria-label="Close">✕</button>
               </div>
               <div class="boardModalBody" id="infoBody">
-                This is a simple Stockfish-powered chess bot set to an estimated rating level. Choose a side, play a game, and rematch when you're done. Captured pieces and move list update live as you play.
+                This is a simple Stockfish-powered chess bot set to an estimated rating level. Choose a side, play a game, and rematch when you're done.
               </div>
               <div class="boardModalActions">
                 <button class="btn" type="button" id="infoOkBtn">Got it</button>
@@ -695,17 +715,19 @@
       <div class="playerBar" id="bottomBar">
         <div class="playerMeta">
           <div class="avatar" aria-hidden="true" id="bottomYouAvatar">Y</div>
+
           <div class="names">
             <div class="nameBlock">
               <div class="name">You</div>
               <div class="elo"><span>?</span></div>
             </div>
           </div>
-        </div>
 
-        <div class="barRight">
-          <div class="capIcons" id="capBottomIcons"></div>
-          <div class="capScore" id="capBottomScore"></div>
+          <!-- captures inline after name/elo -->
+          <div class="capInline" aria-label="Your captures">
+            <div class="capIcons" id="capBottomIcons"></div>
+            <div class="capScore" id="capBottomScore"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -727,7 +749,6 @@
       <div class="movesTitle">Moves</div>
       <div class="moves" id="moves"></div>
 
-      <!-- Controls -->
       <div class="sideBottom" aria-label="Controls">
         <button class="btn green wide" id="newGameBtn">New Game</button>
         <button class="btn danger wide" id="resignBtn">Resign</button>
@@ -764,7 +785,7 @@
 
   // ---- Chat timing ----
   const CHAT_TOTAL_MS   = 10350; // matches CSS bubbleLife duration (10.35s)
-  const INTRO_HEY_MS    = 5000;  // "Hey, I'm Krisper." should last 5s
+  const INTRO_HEY_MS    = 5000;  // "Hey, I'm Krisper." lasts 5s
 
   // Avatars
   const TOP_AVATAR_URL   = "./krisper-avatar.png";
@@ -773,9 +794,7 @@
 
   function setImgAvatar(el, url, fallbackLetter){
     if (!el) return;
-    el.innerHTML = url
-      ? `<img src="${url}" alt="Avatar">`
-      : (fallbackLetter || "K");
+    el.innerHTML = url ? `<img src="${url}" alt="Avatar">` : (fallbackLetter || "K");
   }
   setImgAvatar(document.getElementById("topBotAvatar"), TOP_AVATAR_URL, "K");
   setImgAvatar(document.getElementById("sideChatAvatar"), CHAT_AVATAR_URL, "K");
@@ -793,6 +812,12 @@
   const mResignBtn = document.getElementById("mResignBtn");
 
   const movesEl = document.getElementById("moves");
+
+  // Capture UI in bars
+  const capTopIcons = document.getElementById("capTopIcons");
+  const capBottomIcons = document.getElementById("capBottomIcons");
+  const capTopScore = document.getElementById("capTopScore");
+  const capBottomScore = document.getElementById("capBottomScore");
 
   // Board modals
   const sideOverlay = document.getElementById("sideOverlay");
@@ -849,6 +874,9 @@
   let chatTimer = null;
   let idleHeyTimer = null;
 
+  // "Let's play." should fade after user's first move
+  let fadeLetsPlayAfterFirstMove = false;
+
   function clearChat(){
     chatEl.innerHTML = "";
     if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
@@ -877,6 +905,15 @@
     chatEl.appendChild(div);
   }
 
+  function fadeOutCurrentBubbleQuick(){
+    const div = chatEl.querySelector(".bubble");
+    if (!div) return;
+    div.classList.add("fadeOut");
+    setTimeout(() => {
+      if (div && div.parentNode === chatEl) div.remove();
+    }, 260);
+  }
+
   // Periodic chatter
   const randomLines = [
     "When did you start playing chess?",
@@ -892,6 +929,9 @@
   let nextChatterAtPlies = randInt(6, 10);
   function resetChatter(){ plySinceChatter = 0; nextChatterAtPlies = randInt(6, 10); }
 
+  // Chess game
+  const game = new Chess();
+
   function maybeRandomChatter(){
     if (!gameStarted) return;
     if (game.game_over()) return;
@@ -902,15 +942,6 @@
       resetChatter();
     }
   }
-
-  // Capture UI in bars
-  const capTopIcons = document.getElementById("capTopIcons");
-  const capBottomIcons = document.getElementById("capBottomIcons");
-  const capTopScore = document.getElementById("capTopScore");
-  const capBottomScore = document.getElementById("capBottomScore");
-
-  // Copy PGN
-  const game = new Chess();
 
   async function copyPgnToClipboard(){
     const pgn = game.pgn();
@@ -1149,43 +1180,28 @@
       }
     }
 
-    // Top bar is the BOT at top; show pieces BOT has captured (i.e., captured by engine color)
-    // But we track by move color: mv.color === "w" means white captured a black piece.
-    // We'll interpret:
-    // - capturedByWhite: pieces white has captured
-    // - capturedByBlack: pieces black has captured
-    // Top bar should show engine's captures depending on engineColor.
     const engineCaps = (engineColor === "w") ? capturedByWhite : capturedByBlack;
     const playerCaps = (playerColor === "w") ? capturedByWhite : capturedByBlack;
 
-    // For icon colors: show the captured piece color
-    // If white captured something, it captured black pieces => prefix "b"
-    // If black captured something, it captured white pieces => prefix "w"
     const enginePrefix = (engineColor === "w") ? "b" : "w";
     const playerPrefix = (playerColor === "w") ? "b" : "w";
 
     paint(capTopIcons, engineCaps, enginePrefix);
     paint(capBottomIcons, playerCaps, playerPrefix);
 
-    // Score: only show on side that is up
-    // diff > 0 means White is up material (in captured points)
-    // We'll compute who is up relative to player/bot bars:
     let topScoreText = "";
     let bottomScoreText = "";
 
     if (diff !== 0){
-      // if White up (diff>0), then side with white has +diff
-      const whiteScore = `+${Math.abs(diff)}`;
-      const blackScore = `+${Math.abs(diff)}`;
-
+      const scoreText = `+${Math.abs(diff)}`;
       if (diff > 0){
-        // White is up
-        if (engineColor === "w") topScoreText = whiteScore;
-        else bottomScoreText = whiteScore;
+        // White up
+        if (engineColor === "w") topScoreText = scoreText;
+        else bottomScoreText = scoreText;
       } else {
-        // Black is up
-        if (engineColor === "b") topScoreText = blackScore;
-        else bottomScoreText = blackScore;
+        // Black up
+        if (engineColor === "b") topScoreText = scoreText;
+        else bottomScoreText = scoreText;
       }
     }
 
@@ -1248,7 +1264,10 @@
 
     clearChat();
     resetChatter();
-    botSay("Let's play.");
+
+    // "Let's play." should fade after player's first move
+    botSaySticky("Let's play.");
+    fadeLetsPlayAfterFirstMove = true;
 
     setGameUiState();
 
@@ -1283,8 +1302,13 @@
       const mv = game.move({ from: source, to: target, promotion: "q" });
       if (mv === null) return "snapback";
 
-      board.position(game.fen(), true);
+      // After PLAYER'S first move: fade "Let's play."
+      if (fadeLetsPlayAfterFirstMove) {
+        fadeOutCurrentBubbleQuick();
+        fadeLetsPlayAfterFirstMove = false;
+      }
 
+      board.position(game.fen(), true);
       renderMoves();
       renderCapturedToBars();
 
