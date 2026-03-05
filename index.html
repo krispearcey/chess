@@ -44,6 +44,9 @@
 
       /* closeness between bars and board */
       --barGap: 6px;
+
+      /* NEW: extra spacing controls for the new top moves strip */
+      --topMovesGap: 6px;
     }
 
     *{box-sizing:border-box}
@@ -87,6 +90,67 @@
       pointer-events:none;
     }
 
+    /* NEW: top horizontal moves strip wrapper */
+    .topMovesWrap{
+      width:var(--boardW);
+      max-width:100%;
+      padding:0;
+      margin:0 0 var(--topMovesGap) 0;
+      pointer-events:none;
+    }
+
+    /* NEW: top horizontal moves strip */
+    .topMovesBar{
+      width:100%;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--sq);
+      padding:8px 10px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      white-space:nowrap;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:thin;
+      scrollbar-color: rgba(255,255,255,.14) transparent;
+    }
+    .topMovesBar::-webkit-scrollbar{ height:10px; }
+    .topMovesBar::-webkit-scrollbar-track{ background:transparent; }
+    .topMovesBar::-webkit-scrollbar-thumb{
+      background:rgba(255,255,255,.12);
+      border:3px solid transparent;
+      background-clip:padding-box;
+      border-radius:999px;
+    }
+    .topMovesBar:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.18); }
+
+    .topMovePill{
+      pointer-events:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      height:30px;
+      padding:0 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.04);
+      font-size:13px;
+      color:var(--text);
+      font-weight:800;
+      gap:6px;
+    }
+    .topMovePill .no{
+      color:var(--muted);
+      font-weight:900;
+      font-size:12px;
+    }
+    .topMovePill.last{
+      background:rgba(255,255,255,.08);
+      border-color:rgba(255,255,255,.14);
+    }
+
     .topBarCard, .bottomBarCard{
       background:var(--panel);
       border:1px solid var(--line);
@@ -95,23 +159,22 @@
       width:100%;
     }
 
-    /* CHANGED: left-align content in bar */
+    /* left-align content in bar */
     .flatBar{
       width:100%;
       display:flex;
       align-items:flex-end;
-      justify-content:flex-start;   /* was center */
+      justify-content:flex-start;
       gap:12px;
       padding:0;
       margin:0;
       min-height:0;
     }
 
-    /* CHANGED: keep meta block left */
     .centerMeta{
       display:flex;
       align-items:flex-end;
-      justify-content:flex-start;   /* explicit */
+      justify-content:flex-start;
       gap:10px;
       min-width:0;
       flex:0 0 auto;
@@ -545,6 +608,7 @@
     .btn.square i{ font-size:16px; }
 
     .mobileMenuBtn, .mobileSheetBackdrop { display:none; }
+
     @media (max-width: 980px){
       .app{
         width:100%;
@@ -557,6 +621,12 @@
       .left{ height:calc(100dvh - 24px); }
       .boardBox{ width:100%; max-width:none; }
       .barWrap{ width:100%; }
+      .topMovesWrap{ width:100%; }
+
+      /* NEW: keep the top bars safely away from the floating menu button so it never covers them */
+      .left{
+        padding-bottom: 86px; /* space for 60px button + margins/safe-area */
+      }
 
       .mobileMenuBtn{
         display:block;
@@ -620,16 +690,40 @@
         border-radius:999px;
         background:rgba(255,255,255,.18);
       }
+
+      /* CHANGED: menu layout to:
+         New Game
+         Flip | Info
+         Resign
+      */
       .sheetBtns{
         padding:14px;
         display:grid;
-        grid-template-columns: 1fr 54px 54px;
+        grid-template-columns: 1fr 1fr; /* Flip and Info split evenly */
         gap:12px;
         align-items:stretch;
       }
-      .sheetBtns #mNewGameBtn{ grid-column: 1 / -1; padding:16px 14px; font-size:16px; border-radius:12px; height:auto; }
-      .sheetBtns #mResignBtn{ grid-column: 1 / -1; padding:16px 14px; font-size:16px; border-radius:12px; height:auto; }
-      .sheetBtns #mFlipBtn, .sheetBtns #mInfoBtn{ height:52px; border-radius:12px; }
+      .sheetBtns #mNewGameBtn{
+        grid-column: 1 / -1;
+        padding:16px 14px;
+        font-size:16px;
+        border-radius:12px;
+        height:auto;
+      }
+      .sheetBtns #mFlipBtn,
+      .sheetBtns #mInfoBtn{
+        height:52px;
+        border-radius:12px;
+        width:100%;
+        padding:0 12px;
+      }
+      .sheetBtns #mResignBtn{
+        grid-column: 1 / -1;
+        padding:16px 14px;
+        font-size:16px;
+        border-radius:12px;
+        height:auto;
+      }
     }
   </style>
 </head>
@@ -637,6 +731,11 @@
 <body>
   <div class="app">
     <section class="left">
+
+      <!-- NEW: horizontal scroll moves strip ABOVE the top name/elo/avatar bar -->
+      <div class="topMovesWrap">
+        <div class="topMovesBar" id="topMovesBar" aria-label="Moves (horizontal)"></div>
+      </div>
 
       <div class="barWrap">
         <div class="topBarCard">
@@ -826,6 +925,9 @@
   const mResignBtn = document.getElementById("mResignBtn");
 
   const movesEl = document.getElementById("moves");
+
+  // NEW: top horizontal moves strip element
+  const topMovesBar = document.getElementById("topMovesBar");
 
   const capTopIcons = document.getElementById("capTopIcons");
   const capBottomIcons = document.getElementById("capBottomIcons");
@@ -1110,6 +1212,44 @@
     document.getElementById("capBottomScore").textContent = bottomScoreText;
   }
 
+  // NEW: render top horizontal move pills
+  function renderTopMovesStrip(){
+    if (!topMovesBar) return;
+    const history = game.history(); // SAN list
+    topMovesBar.innerHTML = "";
+
+    if (history.length === 0){
+      const pill = document.createElement("div");
+      pill.className = "topMovePill";
+      pill.textContent = "No moves yet";
+      topMovesBar.appendChild(pill);
+      return;
+    }
+
+    for (let i = 0; i < history.length; i++){
+      const ply = i + 1;
+      const moveNo = Math.floor(i/2) + 1;
+      const isWhite = (i % 2 === 0);
+
+      const pill = document.createElement("div");
+      pill.className = "topMovePill" + (i === history.length - 1 ? " last" : "");
+
+      const no = document.createElement("span");
+      no.className = "no";
+      no.textContent = isWhite ? `${moveNo}.` : `${moveNo}...`;
+
+      const san = document.createElement("span");
+      san.textContent = history[i];
+
+      pill.appendChild(no);
+      pill.appendChild(san);
+      topMovesBar.appendChild(pill);
+    }
+
+    // scroll to end
+    topMovesBar.scrollLeft = topMovesBar.scrollWidth;
+  }
+
   function renderMoves(){
     const history = game.history();
     const rows = [];
@@ -1143,6 +1283,9 @@
       movesEl.appendChild(row);
     });
     movesEl.scrollTop = movesEl.scrollHeight;
+
+    // NEW: keep the top strip in sync with the main list
+    renderTopMovesStrip();
   }
 
   function clearMoveDots(){
@@ -1173,12 +1316,10 @@
     const line = event.data;
 
     if (line === "uciok") {
-      // === CHANGED: use Skill Level system instead of UCI_Elo ===
-      // (no UCI_LimitStrength / no UCI_Elo)
-      sf.postMessage('setoption name Skill Level value 1'); // Skill Level 1 - 20. 0 is ~1350 lichess.
-      sf.postMessage('setoption name Skill Level Maximum Error value 600'); // Set maximum error (higher value = bigger mistakes)
-      sf.postMessage('setoption name Skill Level Probability value 128'); // Set probability (higher value = more frequent mistakes)
-      sf.postMessage('setoption name MultiPV value 5'); // blunder pool. default is 4
+      sf.postMessage('setoption name Skill Level value 1');
+      sf.postMessage('setoption name Skill Level Maximum Error value 600');
+      sf.postMessage('setoption name Skill Level Probability value 128');
+      sf.postMessage('setoption name MultiPV value 5');
       sf.postMessage("isready");
       return;
     }
