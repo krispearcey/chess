@@ -45,12 +45,9 @@
       --green:#2f7d32;
       --greenHover:#3a8f3d;
 
-      /* slightly rounded */
       --sq:6px;
-
       --boardBorder:1px;
 
-      /* chat bubble */
       --bubbleBg:#f2f2f2;
       --bubbleText:#1b1b1b;
     }
@@ -70,7 +67,7 @@
       width:min(1320px, 100%);
       margin:0 auto;
       display:grid;
-      grid-template-columns: 1fr 420px; /* wider sidebar */
+      grid-template-columns: 1fr 420px;
       gap:16px;
       padding:18px;
       align-items:start;
@@ -237,7 +234,7 @@
       border-top:1px solid var(--line);
       display:flex;
       gap:10px;
-      flex-wrap:nowrap;          /* keep side-by-side */
+      flex-wrap:nowrap;
     }
     .endActions .btn{
       flex:1 1 0;
@@ -336,20 +333,20 @@
       gap:8px;
     }
 
-    /* Chat row with avatar at left */
+    /* Chat row with bigger avatar at left */
     .chatRow{
       display:grid;
-      grid-template-columns: 64px 1fr;
-      gap:12px;
+      grid-template-columns: 92px 1fr;
+      gap:14px;
       align-items:start;
-      min-height:220px;
+      min-height:240px;
     }
     .chatAvatar{
-      width:64px;
-      height:64px;
-      border-radius:var(--sq);
-      border:1px solid var(--line);
-      background:var(--panel2);
+      width:92px;
+      height:92px;
+      border-radius:12px;
+      border:none;               /* no border */
+      background:transparent;     /* so the image edge is clean */
       overflow:hidden;
       display:grid;
       place-items:center;
@@ -358,31 +355,19 @@
     }
     .chatAvatar img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-    /* chat area: no border, no different color */
+    /* chat area: NOT scrollable, same as sidebar, no border */
     .chat{
+      position:relative;
       background:transparent;
       border:none;
-      border-radius:0;
       padding:0;
+      height:240px;
+      overflow:hidden; /* no scrolling */
       display:flex;
-      flex-direction:column;
-      gap:10px;
-      height:220px;
-      overflow:auto;
+      align-items:flex-start;
     }
 
-    .chat::-webkit-scrollbar{ width:10px; }
-    .chat::-webkit-scrollbar-track{ background:transparent; }
-    .chat::-webkit-scrollbar-thumb{
-      background:rgba(255,255,255,.14);
-      border:3px solid transparent;
-      background-clip:padding-box;
-      border-radius:999px;
-    }
-    .chat:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.20); }
-    .chat{ scrollbar-width:thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
-
-    /* ONLY bot bubbles; white with dark text */
+    /* Only one visible message, fades out */
     .bubble{
       max-width:92%;
       padding:10px 12px;
@@ -394,6 +379,14 @@
       line-height:1.25;
       white-space:pre-wrap;
       align-self:flex-start;
+      opacity:1;
+    }
+    .bubble.fade{
+      animation: fadeOutQuick .35s ease-out forwards;
+      animation-delay: 5s;
+    }
+    @keyframes fadeOutQuick{
+      to { opacity:0; transform:translateY(-2px); }
     }
 
     .movesTitle{
@@ -479,7 +472,6 @@
 
     /* ---- MOBILE ---- */
     .mobileMenuBtn, .mobileSheetBackdrop { display:none; }
-
     @media (max-width: 980px){
       .app{
         width:100%;
@@ -580,7 +572,7 @@
       <div class="playerBar">
         <a class="botLink" href="https://www.chess.com/member/krisper" target="_blank" rel="noopener noreferrer" aria-label="krisper on chess.com">
           <div class="playerMeta">
-            <div class="avatar" aria-hidden="true" id="topBotAvatar">K</div>
+            <div class="avatar" aria-hidden="true" id="topBotAvatar"></div>
             <div class="names">
               <div class="name" id="botName">krisper</div>
               <div class="elo">
@@ -654,7 +646,7 @@
         </div>
 
         <div class="chatRow">
-          <div class="chatAvatar" id="sideChatAvatar" aria-hidden="true">K</div>
+          <div class="chatAvatar" id="sideChatAvatar" aria-hidden="true"></div>
           <div class="chat" id="chat"></div>
         </div>
       </div>
@@ -690,14 +682,18 @@
   if (typeof Chess === "undefined") hardFail("chess.js failed to load.");
   if (typeof ChessBoard === "undefined") hardFail("chessboard.js failed to load.");
 
-  const BOT_AVATAR_URL = ""; // e.g. "./img/bot.png"
+  // REQUIRED by you:
+  // - top bar avatar: krisper-avatar.png
+  // - chat avatar: krisper.png (different image)
+  const TOP_AVATAR_URL  = "./krisper-avatar.png";
+  const CHAT_AVATAR_URL = "./krisper.png";
 
-  function setAvatar(el){
+  function setAvatarImg(el, url){
     if (!el) return;
-    el.innerHTML = BOT_AVATAR_URL ? `<img src="${BOT_AVATAR_URL}" alt="Bot avatar">` : "K";
+    el.innerHTML = `<img src="${url}" alt="krisper avatar">`;
   }
-  setAvatar(document.getElementById("topBotAvatar"));
-  setAvatar(document.getElementById("sideChatAvatar"));
+  setAvatarImg(document.getElementById("topBotAvatar"), TOP_AVATAR_URL);
+  setAvatarImg(document.getElementById("sideChatAvatar"), CHAT_AVATAR_URL);
 
   // DOM
   const newGameBtn = document.getElementById("newGameBtn");
@@ -752,15 +748,36 @@
   endCloseBtn.addEventListener("click", closeEndOverlay);
   endOverlay.addEventListener("click", (e) => { if (e.target === endOverlay) closeEndOverlay(); });
 
-  // Chat (BOT ONLY)
+  // Chat (BOT ONLY) - last message only, fades after 5s
   const chatEl = document.getElementById("chat");
-  function clearChat(){ chatEl.innerHTML = ""; }
-  function botSay(text){
+
+  function showLastMessage(text){
+    chatEl.innerHTML = "";
     const div = document.createElement("div");
-    div.className = "bubble";
+    div.className = "bubble fade";
     div.textContent = text;
     chatEl.appendChild(div);
-    chatEl.scrollTop = chatEl.scrollHeight;
+
+    // after fade completes, remove it
+    const removeAfter = 5000 + 350 + 50;
+    setTimeout(() => {
+      if (div.parentNode === chatEl) chatEl.removeChild(div);
+    }, removeAfter);
+  }
+
+  // Your requested phrases (randomly used by helper below if you want)
+  const EXTRA_PHRASES = [
+    "When did you start playing chess?",
+    "My dog is here.",
+    "You've activated my trap card.",
+    "@@@",
+    \"I'm going to have to study this one later.\"
+  ];
+
+  // Call this if you ever want a random quip:
+  function randomQuip(){
+    const i = Math.floor(Math.random() * EXTRA_PHRASES.length);
+    showLastMessage(EXTRA_PHRASES[i]);
   }
 
   // Copy PGN
@@ -833,22 +850,22 @@
     if (game.in_checkmate()){
       const mated = game.turn();
       if (mated === engineColor) {
-        botSay("You got me.");
+        showLastMessage("You're alright.");
         openEndOverlay("You won!");
       } else {
-        botSay("Get rekt.");
+        showLastMessage("Get rekt.");
         openEndOverlay("You lost.");
       }
       return true;
     }
     if (game.in_stalemate()){
-      botSay("Good game.");
+      showLastMessage("Good game.");
       return true;
     }
     if (game.in_check()){
       const inCheck = game.turn();
-      if (inCheck === engineColor) botSay("Check.");
-      else botSay("Check, m8.");
+      if (inCheck === engineColor) showLastMessage("Check.");
+      else showLastMessage("Check, m8.");
       return true;
     }
     return false;
@@ -856,7 +873,7 @@
 
   sf.onerror = (e) => {
     console.error("Stockfish worker error:", e);
-    botSay("Engine error.");
+    showLastMessage("Engine error.");
   };
 
   sf.onmessage = (event) => {
@@ -890,10 +907,11 @@
             board.position(game.fen(), true);
             renderMoves();
             renderCaptured();
-            botSay("Played " + mv.san);
 
-            const spoke = speakChecksAndEnds();
-            if (!spoke && !game.game_over()) botSay("Your move.");
+            // no move bubbles — but you still get the latest status:
+            showLastMessage("Your move.");
+
+            speakChecksAndEnds();
           }
         }
       }
@@ -910,6 +928,8 @@
     engineThinking = true;
     sf.postMessage("position fen " + game.fen());
     sf.postMessage("go depth 14");
+
+    showLastMessage("krisper is thinking…");
   }
 
   const PIECE_THEME = "./img/chesspieces/wikipedia/{piece}.png";
@@ -991,7 +1011,7 @@
     capturedByWhite.sort((a,b)=> (order[a] ?? 9) - (order[b] ?? 9));
     capturedByBlack.sort((a,b)=> (order[a] ?? 9) - (order[b] ?? 9));
 
-    const diff = pointsWhite - pointsBlack; // + => White up
+    const diff = pointsWhite - pointsBlack;
 
     function paintStrip(el, arr, prefixColor, scoreText){
       el.innerHTML = "";
@@ -1039,10 +1059,8 @@
     renderMoves();
     renderCaptured();
 
-    clearChat();
-    botSay("Hey, I'm Krisper.");
-    botSay("Press New Game to begin.");
-
+    // show only last message with fade
+    showLastMessage("Press New Game to begin.");
     setGameUiState();
   }
 
@@ -1064,9 +1082,7 @@
     renderMoves();
     renderCaptured();
 
-    clearChat();
-    botSay("Let's play.");
-
+    showLastMessage("Let's play.");
     setGameUiState();
 
     if (engineReady && game.turn() === engineColor) requestEngineMove();
@@ -1101,11 +1117,10 @@
       if (mv === null) return "snapback";
 
       board.position(game.fen(), true);
-
       renderMoves();
       renderCaptured();
 
-      // no user bubbles anymore
+      // no move bubbles; just proceed
       speakChecksAndEnds();
       setTimeout(requestEngineMove, 60);
       return;
@@ -1138,7 +1153,7 @@
   resignNoBtn.addEventListener("click", () => closeBoardOverlay(resignOverlay));
   resignYesBtn.addEventListener("click", () => {
     closeBoardOverlay(resignOverlay);
-    botSay("You resigned.");
+    showLastMessage("You resigned.");
     resetToMain();
   });
 
@@ -1150,9 +1165,7 @@
   // initial
   renderMoves();
   renderCaptured();
-  clearChat();
-  botSay("Hey, I'm Krisper.");
-  botSay("Press New Game to begin.");
+  showLastMessage("Press New Game to begin.");
   setGameUiState();
 
   window.addEventListener("resize", () => board.resize());
