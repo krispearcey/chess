@@ -45,8 +45,8 @@
       /* closeness between bars and board */
       --barGap: 6px;
 
-      /* NEW: extra spacing controls for the new top moves strip */
-      --topMovesGap: 6px;
+      /* MOBILE-ONLY: top horizontal moves strip spacing */
+      --mTopMovesGap: 6px;
     }
 
     *{box-sizing:border-box}
@@ -90,17 +90,9 @@
       pointer-events:none;
     }
 
-    /* NEW: top horizontal moves strip wrapper */
-    .topMovesWrap{
-      width:var(--boardW);
-      max-width:100%;
-      padding:0;
-      margin:0 0 var(--topMovesGap) 0;
-      pointer-events:none;
-    }
-
-    /* NEW: top horizontal moves strip */
-    .topMovesBar{
+    /* ========= MOBILE-ONLY MOVES STRIP (HIDDEN ON DESKTOP) ========= */
+    .mTopMovesWrap{ display:none; }
+    .mTopMovesBar{
       width:100%;
       background:var(--panel);
       border:1px solid var(--line);
@@ -115,19 +107,19 @@
       -webkit-overflow-scrolling:touch;
       scrollbar-width:thin;
       scrollbar-color: rgba(255,255,255,.14) transparent;
+      pointer-events:none;
     }
-    .topMovesBar::-webkit-scrollbar{ height:10px; }
-    .topMovesBar::-webkit-scrollbar-track{ background:transparent; }
-    .topMovesBar::-webkit-scrollbar-thumb{
+    .mTopMovesBar::-webkit-scrollbar{ height:10px; }
+    .mTopMovesBar::-webkit-scrollbar-track{ background:transparent; }
+    .mTopMovesBar::-webkit-scrollbar-thumb{
       background:rgba(255,255,255,.12);
       border:3px solid transparent;
       background-clip:padding-box;
       border-radius:999px;
     }
-    .topMovesBar:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.18); }
+    .mTopMovesBar:hover::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.18); }
 
-    .topMovePill{
-      pointer-events:none;
+    .mMovePill{
       display:inline-flex;
       align-items:center;
       justify-content:center;
@@ -140,16 +132,18 @@
       color:var(--text);
       font-weight:800;
       gap:6px;
+      pointer-events:none;
     }
-    .topMovePill .no{
+    .mMovePill .no{
       color:var(--muted);
       font-weight:900;
       font-size:12px;
     }
-    .topMovePill.last{
+    .mMovePill.last{
       background:rgba(255,255,255,.08);
       border-color:rgba(255,255,255,.14);
     }
+    /* =============================================================== */
 
     .topBarCard, .bottomBarCard{
       background:var(--panel);
@@ -159,7 +153,6 @@
       width:100%;
     }
 
-    /* left-align content in bar */
     .flatBar{
       width:100%;
       display:flex;
@@ -618,15 +611,25 @@
         padding:12px;
       }
       .side{ display:none; }
-      .left{ height:calc(100dvh - 24px); }
+      .left{
+        height:calc(100dvh - 24px);
+
+        /* MOBILE FIX: move bars/board away from floating button so it never overlaps top UI */
+        padding-bottom: 86px;
+      }
       .boardBox{ width:100%; max-width:none; }
       .barWrap{ width:100%; }
-      .topMovesWrap{ width:100%; }
 
-      /* NEW: keep the top bars safely away from the floating menu button so it never covers them */
-      .left{
-        padding-bottom: 86px; /* space for 60px button + margins/safe-area */
+      /* MOBILE-ONLY: show top horizontal moves strip */
+      .mTopMovesWrap{
+        display:block;
+        width:100%;
+        max-width:100%;
+        padding:0;
+        margin:0 0 var(--mTopMovesGap) 0;
+        pointer-events:none;
       }
+      .mTopMovesBar{ width:100%; }
 
       .mobileMenuBtn{
         display:block;
@@ -691,7 +694,7 @@
         background:rgba(255,255,255,.18);
       }
 
-      /* CHANGED: menu layout to:
+      /* MOBILE MENU LAYOUT:
          New Game
          Flip | Info
          Resign
@@ -699,7 +702,7 @@
       .sheetBtns{
         padding:14px;
         display:grid;
-        grid-template-columns: 1fr 1fr; /* Flip and Info split evenly */
+        grid-template-columns: 1fr 1fr;
         gap:12px;
         align-items:stretch;
       }
@@ -732,9 +735,9 @@
   <div class="app">
     <section class="left">
 
-      <!-- NEW: horizontal scroll moves strip ABOVE the top name/elo/avatar bar -->
-      <div class="topMovesWrap">
-        <div class="topMovesBar" id="topMovesBar" aria-label="Moves (horizontal)"></div>
+      <!-- MOBILE ONLY: horizontal scrollable move strip (hidden on desktop) -->
+      <div class="mTopMovesWrap" aria-hidden="true">
+        <div class="mTopMovesBar" id="mTopMovesBar" aria-label="Moves (horizontal, mobile)"></div>
       </div>
 
       <div class="barWrap">
@@ -926,8 +929,8 @@
 
   const movesEl = document.getElementById("moves");
 
-  // NEW: top horizontal moves strip element
-  const topMovesBar = document.getElementById("topMovesBar");
+  // MOBILE-only top moves bar element
+  const mTopMovesBar = document.getElementById("mTopMovesBar");
 
   const capTopIcons = document.getElementById("capTopIcons");
   const capBottomIcons = document.getElementById("capBottomIcons");
@@ -1212,27 +1215,34 @@
     document.getElementById("capBottomScore").textContent = bottomScoreText;
   }
 
-  // NEW: render top horizontal move pills
-  function renderTopMovesStrip(){
-    if (!topMovesBar) return;
-    const history = game.history(); // SAN list
-    topMovesBar.innerHTML = "";
+  // MOBILE-only: horizontal move strip renderer (kept in sync with the sidebar list)
+  function renderMobileTopMovesStrip(){
+    if (!mTopMovesBar) return;
+
+    // only show content on mobile; on desktop it's hidden anyway, but keep it cheap
+    const isMobile = window.matchMedia && window.matchMedia("(max-width: 980px)").matches;
+    if (!isMobile){
+      mTopMovesBar.innerHTML = "";
+      return;
+    }
+
+    const history = game.history();
+    mTopMovesBar.innerHTML = "";
 
     if (history.length === 0){
       const pill = document.createElement("div");
-      pill.className = "topMovePill";
+      pill.className = "mMovePill";
       pill.textContent = "No moves yet";
-      topMovesBar.appendChild(pill);
+      mTopMovesBar.appendChild(pill);
       return;
     }
 
     for (let i = 0; i < history.length; i++){
-      const ply = i + 1;
       const moveNo = Math.floor(i/2) + 1;
       const isWhite = (i % 2 === 0);
 
       const pill = document.createElement("div");
-      pill.className = "topMovePill" + (i === history.length - 1 ? " last" : "");
+      pill.className = "mMovePill" + (i === history.length - 1 ? " last" : "");
 
       const no = document.createElement("span");
       no.className = "no";
@@ -1243,11 +1253,11 @@
 
       pill.appendChild(no);
       pill.appendChild(san);
-      topMovesBar.appendChild(pill);
+      mTopMovesBar.appendChild(pill);
     }
 
-    // scroll to end
-    topMovesBar.scrollLeft = topMovesBar.scrollWidth;
+    // scroll to the end
+    mTopMovesBar.scrollLeft = mTopMovesBar.scrollWidth;
   }
 
   function renderMoves(){
@@ -1284,8 +1294,8 @@
     });
     movesEl.scrollTop = movesEl.scrollHeight;
 
-    // NEW: keep the top strip in sync with the main list
-    renderTopMovesStrip();
+    // keep mobile top strip in sync (mobile only)
+    renderMobileTopMovesStrip();
   }
 
   function clearMoveDots(){
@@ -1584,8 +1594,9 @@
   window.addEventListener("resize", () => {
     board.resize();
     syncBoardWidth();
+    renderMobileTopMovesStrip(); // keep strip correct on orientation/resize
   });
-  setTimeout(() => { board.resize(); syncBoardWidth(); }, 250);
+  setTimeout(() => { board.resize(); syncBoardWidth(); renderMobileTopMovesStrip(); }, 250);
 </script>
 </body>
 </html>
