@@ -47,7 +47,11 @@
       --green:#2f7d32;
       --greenHover:#3a8f3d;
 
-      --sq:6px;
+      /* more squared */
+      --sq:2px;
+
+      /* thinner board border */
+      --boardBorder:1px;
     }
 
     *{box-sizing:border-box}
@@ -149,10 +153,6 @@
     .capturedStrip img{ width:22px; height:22px; display:block; opacity:.95; }
     .capturedStrip .empty{ color:var(--muted); font-size:12px; }
 
-    /* IMPORTANT FIX:
-       Make boardWrap exactly match the board box so overlays cover it perfectly.
-       We size the wrap to the board's computed size, instead of stretching full width.
-    */
     .boardWrap{
       flex:1 1 auto;
       min-height:0;
@@ -161,23 +161,21 @@
       position:relative;
     }
 
-    /* board container that overlays attach to */
     .boardBox{
       width:min(100%, calc(100vh - 56px - 40px - 40px - 36px - 20px));
       max-width:760px;
       aspect-ratio:1 / 1;
       position:relative;
       border-radius:var(--sq);
-      overflow:hidden; /* ensures overlay matches corners */
-      border:1px solid var(--line);
+      overflow:hidden;
+      border:var(--boardBorder) solid rgba(255,255,255,.10);
       background:transparent;
     }
 
-    /* chessboard.js needs explicit width to render */
     #board{
       width:100%;
       height:100%;
-      border-radius:var(--sq);
+      border-radius:0; /* even squarer */
     }
 
     .white-1e1d7{ background:var(--light) !important; }
@@ -198,7 +196,7 @@
       pointer-events:none;
     }
 
-    /* Win/Lose overlay (now attached to .boardBox) */
+    /* Win/Lose overlay */
     .endOverlay{
       position:absolute;
       inset:0;
@@ -249,7 +247,7 @@
       font-weight:900;
     }
 
-    /* Board-centered modals (attached to .boardBox) */
+    /* Board-centered modals */
     .boardModalOverlay{
       position:absolute;
       inset:0;
@@ -472,7 +470,6 @@
         max-width:none;
       }
 
-      /* keep bottom bar clear of the button + safe area */
       #capturedBottom{
         margin-bottom: calc(14px + 60px + 14px + max(env(safe-area-inset-bottom), 0px));
       }
@@ -581,7 +578,6 @@
         <div class="boardBox" id="boardBox">
           <div id="board"></div>
 
-          <!-- Win/Lose overlay -->
           <div class="endOverlay" id="endOverlay" aria-hidden="true">
             <div class="endCard" role="dialog" aria-modal="true" aria-label="Game over">
               <div class="endHead">
@@ -596,7 +592,6 @@
             </div>
           </div>
 
-          <!-- Board-centered NEW GAME modal -->
           <div class="boardModalOverlay" id="sideOverlay" aria-hidden="true">
             <div class="boardModal" role="dialog" aria-modal="true" aria-label="New game">
               <div class="boardModalHead">
@@ -611,7 +606,6 @@
             </div>
           </div>
 
-          <!-- Board-centered RESIGN modal -->
           <div class="boardModalOverlay" id="resignOverlay" aria-hidden="true">
             <div class="boardModal" role="dialog" aria-modal="true" aria-label="Resign">
               <div class="boardModalHead">
@@ -643,9 +637,7 @@
           </div>
         </a>
 
-        <div class="chat" id="chat">
-          <div class="bubble bot">Ready when you are.</div>
-        </div>
+        <div class="chat" id="chat"></div>
       </div>
 
       <div class="movesTitle">Moves</div>
@@ -679,10 +671,7 @@
   if (typeof Chess === "undefined") hardFail("chess.js failed to load.");
   if (typeof ChessBoard === "undefined") hardFail("chessboard.js failed to load.");
 
-  /* BOT AVATAR IMAGE:
-     set to "./img/bot.png" (square image), or leave "" for letter.
-  */
-  const BOT_AVATAR_URL = "krisper.png";
+  const BOT_AVATAR_URL = ""; // e.g. "./img/bot.png"
 
   function applyBotAvatar(){
     const ids = ["topBotAvatar","sideBotAvatar"];
@@ -707,7 +696,6 @@
   const capturedTopEl = document.getElementById("capturedTop");
   const capturedBottomEl = document.getElementById("capturedBottom");
 
-  // Board-centered overlays
   const sideOverlay = document.getElementById("sideOverlay");
   const resignOverlay = document.getElementById("resignOverlay");
   const sideCloseBtn = document.getElementById("sideCloseBtn");
@@ -717,14 +705,9 @@
   const resignYesBtn = document.getElementById("resignYesBtn");
   const resignNoBtn = document.getElementById("resignNoBtn");
 
-  function openBoardOverlay(el){
-    el.classList.add("open");
-    el.setAttribute("aria-hidden","false");
-  }
-  function closeBoardOverlay(el){
-    el.classList.remove("open");
-    el.setAttribute("aria-hidden","true");
-  }
+  function openBoardOverlay(el){ el.classList.add("open"); el.setAttribute("aria-hidden","false"); }
+  function closeBoardOverlay(el){ el.classList.remove("open"); el.setAttribute("aria-hidden","true"); }
+
   sideCloseBtn.addEventListener("click", () => closeBoardOverlay(sideOverlay));
   resignCloseBtn.addEventListener("click", () => closeBoardOverlay(resignOverlay));
   sideOverlay.addEventListener("click", (e) => { if (e.target === sideOverlay) closeBoardOverlay(sideOverlay); });
@@ -743,6 +726,9 @@
     endBody.textContent = "PGN is ready.";
     endOverlay.classList.add("open");
     endOverlay.setAttribute("aria-hidden","false");
+    // Reset copy button state whenever modal opens
+    copyPgnBtn.disabled = false;
+    copyPgnBtn.textContent = "Copy PGN";
   }
   function closeEndOverlay(){
     endOverlay.classList.remove("open");
@@ -751,11 +737,24 @@
   endCloseBtn.addEventListener("click", closeEndOverlay);
   endOverlay.addEventListener("click", (e) => { if (e.target === endOverlay) closeEndOverlay(); });
 
+  // Chat
+  const chatEl = document.getElementById("chat");
+  function clearChat(){ chatEl.innerHTML = ""; }
+  function addBubble(text, who="bot"){
+    const div = document.createElement("div");
+    div.className = "bubble " + (who === "you" ? "you" : "bot");
+    div.textContent = text;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
   async function copyPgnToClipboard(){
     const pgn = game.pgn();
     try{
       await navigator.clipboard.writeText(pgn);
       endBody.textContent = "Copied!";
+      copyPgnBtn.disabled = true;              // greyed out + non-selectable
+      copyPgnBtn.textContent = "Copied";
     }catch(err){
       try{
         const ta = document.createElement("textarea");
@@ -766,23 +765,16 @@
         ta.select();
         document.execCommand("copy");
         ta.remove();
+
         endBody.textContent = "Copied!";
+        copyPgnBtn.disabled = true;
+        copyPgnBtn.textContent = "Copied";
       }catch(e){
         endBody.textContent = "Copy failed. (Clipboard permissions)";
       }
     }
   }
   copyPgnBtn.addEventListener("click", copyPgnToClipboard);
-
-  // Chat
-  const chatEl = document.getElementById("chat");
-  function addBubble(text, who="bot"){
-    const div = document.createElement("div");
-    div.className = "bubble " + (who === "you" ? "you" : "bot");
-    div.textContent = text;
-    chatEl.appendChild(div);
-    chatEl.scrollTop = chatEl.scrollHeight;
-  }
 
   // Mobile sheet
   const mobileMenuBtn = document.getElementById("mobileMenuBtn");
@@ -798,7 +790,6 @@
   const game = new Chess();
   let board;
 
-  // Side selection
   let playerColor = "w";
   let engineColor = "b";
   let gameStarted = false;
@@ -809,7 +800,6 @@
   let engineThinking = false;
 
   function setGameUiState(){
-    // New Game: green + enabled when NOT in progress; disabled when in progress
     if (!gameStarted) {
       newGameBtn.classList.add("green");
       newGameBtn.disabled = false;
@@ -820,11 +810,9 @@
       mNewGameBtn.disabled = true;
     }
 
-    // Resign: disabled when NOT in progress; enabled when in progress
     resignBtn.disabled = !gameStarted;
     mResignBtn.disabled = !gameStarted;
 
-    // Flip always allowed
     flipBtn.disabled = false;
     mFlipBtn.disabled = false;
   }
@@ -871,7 +859,6 @@
 
     if (line === "readyok") {
       engineReady = true;
-      addBubble("Let's play.", "bot");
       return;
     }
 
@@ -1000,6 +987,7 @@
       }
     };
 
+    // swapped
     paint(capturedTopEl, capturedByBlack, "w", "Captured: —");
     paint(capturedBottomEl, capturedByWhite, "b", "Lost: —");
   }
@@ -1018,7 +1006,10 @@
 
     renderMoves();
     renderCaptured();
-    addBubble("New game ready.", "bot");
+
+    clearChat();
+    addBubble("Press New Game to begin.", "bot");
+
     setGameUiState();
   }
 
@@ -1040,7 +1031,9 @@
     board.orientation(playerColor === "w" ? "white" : "black");
     renderMoves();
     renderCaptured();
-    addBubble("You are playing " + (playerColor === "w" ? "White." : "Black."), "bot");
+
+    clearChat();
+    addBubble("Let's play.", "bot");
 
     setGameUiState();
 
@@ -1115,15 +1108,15 @@
     resetToMain();
   });
 
-  // Rematch: green button, does NOT auto-copy PGN
   rematchBtn.addEventListener("click", () => {
     closeEndOverlay();
     startNewGame(playerColor);
   });
 
-  // Initial
+  // Initial state
   renderMoves();
   renderCaptured();
+  clearChat();
   addBubble("Press New Game to begin.", "bot");
   setGameUiState();
 
