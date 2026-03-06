@@ -374,6 +374,23 @@
       flex:1 1 auto;
       min-height:0;
       overflow:auto;
+      scrollbar-width:thin;
+      scrollbar-color: transparent transparent;
+    }
+    .boardModalBody::-webkit-scrollbar{
+      width:10px;
+    }
+    .boardModalBody::-webkit-scrollbar-track{
+      background:transparent;
+    }
+    .boardModalBody::-webkit-scrollbar-thumb{
+      background:transparent;
+      border:3px solid transparent;
+      background-clip:padding-box;
+      border-radius:999px;
+    }
+    .boardModalBody:hover::-webkit-scrollbar-thumb{
+      background:transparent;
     }
 
     .boardModalActions{
