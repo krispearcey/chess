@@ -790,7 +790,7 @@
                     <a href="https://www.chess.com/member/krisper" target="_blank" rel="noopener noreferrer">krisper</a>
                   </div>
                   <div class="elo">
-                    <span id="botElo">1102</span>
+                    <span id="botElo">...</span>
                     <span aria-label="flag" title="Canada">🇨🇦</span>
                   </div>
                 </div>
@@ -948,6 +948,9 @@
   if (typeof Chess === "undefined") hardFail("chess.js failed to load.");
   if (typeof ChessBoard === "undefined") hardFail("chessboard.js failed to load.");
 
+  const CHESS_COM_USERNAME = "krisper";
+  const CHESS_COM_DAILY_FALLBACK_ELO = "1102";
+
   const CHAT_TOTAL_MS = 10350;
   const INTRO_HEY_MS  = 5000;
   const GAP_AFTER_FADE_MS = 120;
@@ -963,6 +966,36 @@
   setImgAvatar(document.getElementById("topBotAvatar"), TOP_AVATAR_URL, "K");
   setImgAvatar(document.getElementById("sideChatAvatar"), CHAT_AVATAR_URL, "K");
   setImgAvatar(document.getElementById("bottomYouAvatar"), YOU_AVATAR_URL, "Y");
+
+  async function loadChessComDailyElo(){
+    const botEloEl = document.getElementById("botElo");
+    if (!botEloEl) return;
+
+    botEloEl.textContent = "...";
+
+    try{
+      const res = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(CHESS_COM_USERNAME)}/stats`, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      const rating = data?.chess_daily?.last?.rating;
+
+      if (Number.isFinite(rating)) {
+        botEloEl.textContent = String(rating);
+      } else {
+        botEloEl.textContent = CHESS_COM_DAILY_FALLBACK_ELO;
+      }
+    }catch(err){
+      console.warn("Could not load Chess.com daily rating:", err);
+      botEloEl.textContent = CHESS_COM_DAILY_FALLBACK_ELO;
+    }
+  }
 
   const newGameBtn = document.getElementById("newGameBtn");
   const flipBtn = document.getElementById("flipBtn");
@@ -1694,6 +1727,7 @@
   renderCapturedToBars();
   showIdleIntro();
   setGameUiState();
+  loadChessComDailyElo();
 
   window.addEventListener("resize", () => {
     board.resize();
