@@ -445,7 +445,7 @@
     .chatRow{
       display:grid;
       grid-template-columns: 132px 1fr;
-      gap:8px;
+      gap:2px;
       align-items:start;
       min-height:230px;
       padding:0 12px 12px;
@@ -463,6 +463,8 @@
       place-items:center;
       font-weight:900;
       user-select:none;
+      position:relative;
+      z-index:1;
     }
     .chatAvatar img{ width:100%; height:100%; object-fit:cover; display:block; }
 
@@ -470,13 +472,16 @@
       background:transparent;
       border:none;
       border-radius:var(--radius);
-      padding:10px 0 0;
+      padding:16px 0 0;
       display:flex;
       flex-direction:column;
       justify-content:flex-start;
       gap:10px;
       height:230px;
       overflow:hidden;
+      margin-left:-14px;
+      position:relative;
+      z-index:2;
     }
 
     .bubble{
@@ -545,9 +550,9 @@
 
     .moveRow{
       display:grid;
-      grid-template-columns: 28px 1fr 1fr;
-      gap:6px;
-      padding:6px 4px;
+      grid-template-columns: 22px 74px 74px;
+      gap:4px;
+      padding:6px 2px;
       border-radius:var(--radius);
       align-items:center;
     }
@@ -556,7 +561,7 @@
       color:var(--muted);
       font-size:12px;
       text-align:right;
-      padding-right:2px;
+      padding-right:1px;
       font-weight:400;
     }
     .moveSan{
@@ -566,6 +571,7 @@
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
+      text-align:left;
     }
     .moveSan.last{
       background:transparent;
@@ -711,6 +717,23 @@
         font-size:16px;
         border-radius:var(--radius);
         height:auto;
+      }
+
+      .chatRow{
+        grid-template-columns: 132px 1fr;
+        gap:8px;
+      }
+      .chat{
+        margin-left:0;
+        padding-top:10px;
+      }
+      .moveRow{
+        grid-template-columns: 28px 1fr 1fr;
+        gap:6px;
+        padding:6px 4px;
+      }
+      .moveNo{
+        padding-right:2px;
       }
     }
   </style>
