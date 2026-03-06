@@ -264,7 +264,6 @@
       touch-action:none;
     }
 
-    /* Prevent long-press image/save menus on mobile for board + pieces */
     #board,
     #board *{
       -webkit-touch-callout:none !important;
@@ -297,6 +296,21 @@
       border-radius:999px;
       background:rgba(0,0,0,.25);
       box-shadow: inset 0 0 0 2px rgba(255,255,255,.18);
+      pointer-events:none;
+    }
+
+    .boardMarkup{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:20;
+    }
+
+    .boardMarkup svg{
+      width:100%;
+      height:100%;
+      display:block;
+      overflow:visible;
       pointer-events:none;
     }
 
@@ -799,6 +813,7 @@
       <div class="boardWrap">
         <div class="boardBox" id="boardBox">
           <div id="board"></div>
+          <div class="boardMarkup" id="boardMarkup" aria-hidden="true"></div>
 
           <div class="endOverlay" id="endOverlay" aria-hidden="true">
             <div class="endCard" role="dialog" aria-modal="true" aria-label="Game over">
@@ -1140,6 +1155,233 @@
   let engineColor = "b";
   let gameStarted = false;
 
+  const boardMarkup = document.getElementById("boardMarkup");
+  const squareMarks = new Set();
+  const arrowMarks = [];
+  let annotationActive = false;
+  let annotationStartSquare = null;
+  let annotationCurrentSquare = null;
+  let annotationMoved = false;
+
+  function isDesktopBoardMarkupAllowed(){
+    return window.innerWidth > 980 && gameStarted && !game.game_over();
+  }
+
+  function getSquareElement(square){
+    return document.querySelector(`#board .square-${square}`);
+  }
+
+  function getSquareCenter(square){
+    const sq = getSquareElement(square);
+    const box = document.getElementById("boardBox");
+    if (!sq || !box) return null;
+
+    const sqRect = sq.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+
+    return {
+      x: (sqRect.left - boxRect.left) + (sqRect.width / 2),
+      y: (sqRect.top - boxRect.top) + (sqRect.height / 2),
+      size: sqRect.width
+    };
+  }
+
+  function clearBoardMarkup(){
+    squareMarks.clear();
+    arrowMarks.length = 0;
+    renderBoardMarkup();
+  }
+
+  function addArrow(from, to){
+    if (!from || !to || from === to) return;
+    const key = `${from}->${to}`;
+    const idx = arrowMarks.findIndex(a => `${a.from}->${a.to}` === key);
+    if (idx >= 0) arrowMarks.splice(idx, 1);
+    else arrowMarks.push({ from, to });
+    renderBoardMarkup();
+  }
+
+  function toggleSquareMark(square){
+    if (!square) return;
+    if (squareMarks.has(square)) squareMarks.delete(square);
+    else squareMarks.add(square);
+    renderBoardMarkup();
+  }
+
+  function renderBoardMarkup(previewArrow = null){
+    const box = document.getElementById("boardBox");
+    if (!boardMarkup || !box){
+      return;
+    }
+
+    const boxRect = box.getBoundingClientRect();
+    const w = Math.max(1, Math.round(boxRect.width));
+    const h = Math.max(1, Math.round(boxRect.height));
+
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+
+    const defs = document.createElementNS(ns, "defs");
+    const marker = document.createElementNS(ns, "marker");
+    marker.setAttribute("id", "arrowhead");
+    marker.setAttribute("markerWidth", "14");
+    marker.setAttribute("markerHeight", "14");
+    marker.setAttribute("refX", "10");
+    marker.setAttribute("refY", "5");
+    marker.setAttribute("orient", "auto");
+    marker.setAttribute("markerUnits", "strokeWidth");
+
+    const markerPath = document.createElementNS(ns, "path");
+    markerPath.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+    markerPath.setAttribute("fill", "rgba(214, 79, 79, 0.92)");
+    marker.appendChild(markerPath);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    for (const square of squareMarks){
+      const c = getSquareCenter(square);
+      if (!c) continue;
+
+      const rect = document.createElementNS(ns, "rect");
+      const pad = c.size * 0.08;
+      rect.setAttribute("x", String(c.x - (c.size / 2) + pad));
+      rect.setAttribute("y", String(c.y - (c.size / 2) + pad));
+      rect.setAttribute("width", String(c.size - pad * 2));
+      rect.setAttribute("height", String(c.size - pad * 2));
+      rect.setAttribute("rx", String(c.size * 0.08));
+      rect.setAttribute("fill", "rgba(214, 79, 79, 0.34)");
+      rect.setAttribute("stroke", "rgba(214, 79, 79, 0.92)");
+      rect.setAttribute("stroke-width", String(Math.max(2, c.size * 0.05)));
+      svg.appendChild(rect);
+    }
+
+    function drawArrow(from, to, isPreview){
+      const a = getSquareCenter(from);
+      const b = getSquareCenter(to);
+      if (!a || !b) return;
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 2) return;
+
+      const ux = dx / len;
+      const uy = dy / len;
+
+      const startOffset = a.size * 0.18;
+      const endOffset = b.size * 0.26;
+
+      const x1 = a.x + ux * startOffset;
+      const y1 = a.y + uy * startOffset;
+      const x2 = b.x - ux * endOffset;
+      const y2 = b.y - uy * endOffset;
+
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", String(x1));
+      line.setAttribute("y1", String(y1));
+      line.setAttribute("x2", String(x2));
+      line.setAttribute("y2", String(y2));
+      line.setAttribute("stroke", isPreview ? "rgba(214, 79, 79, 0.62)" : "rgba(214, 79, 79, 0.92)");
+      line.setAttribute("stroke-width", String(Math.max(6, a.size * 0.16)));
+      line.setAttribute("stroke-linecap", "round");
+      line.setAttribute("marker-end", "url(#arrowhead)");
+      svg.appendChild(line);
+    }
+
+    for (const arrow of arrowMarks){
+      drawArrow(arrow.from, arrow.to, false);
+    }
+
+    if (previewArrow && previewArrow.from && previewArrow.to && previewArrow.from !== previewArrow.to){
+      drawArrow(previewArrow.from, previewArrow.to, true);
+    }
+
+    boardMarkup.innerHTML = "";
+    boardMarkup.appendChild(svg);
+  }
+
+  function getSquareFromEventTarget(target){
+    if (!target) return null;
+    const squareEl = target.closest ? target.closest('[data-square]') : null;
+    if (squareEl && squareEl.dataset && squareEl.dataset.square) return squareEl.dataset.square;
+
+    const classTarget = target.closest ? target.closest('[class*="square-"]') : null;
+    if (!classTarget) return null;
+
+    const m = (classTarget.className || "").match(/\bsquare-([a-h][1-8])\b/);
+    return m ? m[1] : null;
+  }
+
+  function onAnnotationMouseDown(e){
+    if (!isDesktopBoardMarkupAllowed()) return;
+    if (e.button === 0){
+      clearBoardMarkup();
+      return;
+    }
+    if (e.button !== 2) return;
+
+    const square = getSquareFromEventTarget(e.target);
+    if (!square) return;
+
+    e.preventDefault();
+    annotationActive = true;
+    annotationStartSquare = square;
+    annotationCurrentSquare = square;
+    annotationMoved = false;
+    renderBoardMarkup();
+  }
+
+  function onAnnotationMouseMove(e){
+    if (!annotationActive) return;
+
+    const square = getSquareFromEventTarget(e.target);
+    if (!square) return;
+
+    if (square !== annotationCurrentSquare){
+      annotationCurrentSquare = square;
+      annotationMoved = (annotationCurrentSquare !== annotationStartSquare);
+      renderBoardMarkup(
+        annotationMoved ? { from: annotationStartSquare, to: annotationCurrentSquare } : null
+      );
+    }
+  }
+
+  function finishAnnotation(){
+    if (!annotationActive) return;
+
+    const start = annotationStartSquare;
+    const end = annotationCurrentSquare;
+
+    annotationActive = false;
+    annotationStartSquare = null;
+    annotationCurrentSquare = null;
+
+    if (!isDesktopBoardMarkupAllowed()){
+      renderBoardMarkup();
+      return;
+    }
+
+    if (!start || !end){
+      renderBoardMarkup();
+      return;
+    }
+
+    if (start === end || !annotationMoved) toggleSquareMark(start);
+    else addArrow(start, end);
+
+    renderBoardMarkup();
+  }
+
+  function cancelAnnotation(){
+    annotationActive = false;
+    annotationStartSquare = null;
+    annotationCurrentSquare = null;
+    annotationMoved = false;
+    renderBoardMarkup();
+  }
+
   function markGameEndedUi(){
     gameStarted = false;
     engineThinking = false;
@@ -1150,6 +1392,8 @@
 
     mNewGameBtn.disabled = false;
     mResignBtn.disabled = true;
+
+    clearBoardMarkup();
   }
 
   function setGameUiState(){
@@ -1414,12 +1658,18 @@
     if (!box) return;
     const w = Math.round(box.getBoundingClientRect().width);
     document.documentElement.style.setProperty("--boardW", w + "px");
+    renderBoardMarkup(
+      annotationActive && annotationStartSquare && annotationCurrentSquare && annotationStartSquare !== annotationCurrentSquare
+        ? { from: annotationStartSquare, to: annotationCurrentSquare }
+        : null
+    );
   }
 
   function resetToMain({ skipIntro=false } = {}){
     game.reset();
     board.start(true);
     clearMoveDots();
+    clearBoardMarkup();
     engineThinking = false;
     gameStarted = false;
 
@@ -1448,6 +1698,7 @@
     game.reset();
     board.start(true);
     clearMoveDots();
+    clearBoardMarkup();
     engineThinking = false;
     gameStarted = true;
 
@@ -1509,6 +1760,11 @@
 
     boardContainer.addEventListener("touchend", () => {}, { passive: true, capture: true });
     boardContainer.addEventListener("touchmove", () => {}, { passive: true, capture: true });
+
+    boardContainer.addEventListener("mousedown", onAnnotationMouseDown, true);
+    boardContainer.addEventListener("mousemove", onAnnotationMouseMove, true);
+    window.addEventListener("mouseup", finishAnnotation, true);
+    window.addEventListener("blur", cancelAnnotation);
   }
 
   board = ChessBoard("board", {
@@ -1560,7 +1816,10 @@
       return;
     },
 
-    onSnapEnd: () => board.position(game.fen())
+    onSnapEnd: () => {
+      board.position(game.fen());
+      renderBoardMarkup();
+    }
   });
 
   function openNewGame(){
@@ -1580,7 +1839,10 @@
   }
 
   newGameBtn.addEventListener("click", openNewGame);
-  flipBtn.addEventListener("click", () => board.flip());
+  flipBtn.addEventListener("click", () => {
+    board.flip();
+    setTimeout(() => renderBoardMarkup(), 0);
+  });
   infoBtn.addEventListener("click", openInfo);
   resignBtn.addEventListener("click", openResign);
 
@@ -1594,7 +1856,11 @@
   mobileSheet.addEventListener("click", (e) => { if (e.target === mobileSheet) closeSheet(); });
 
   mNewGameBtn.addEventListener("click", () => { closeSheet(); openNewGame(); });
-  mFlipBtn.addEventListener("click", () => { closeSheet(); board.flip(); });
+  mFlipBtn.addEventListener("click", () => {
+    closeSheet();
+    board.flip();
+    setTimeout(() => renderBoardMarkup(), 0);
+  });
   mInfoBtn.addEventListener("click", () => { closeSheet(); openInfo(); });
   mResignBtn.addEventListener("click", () => { closeSheet(); openResign(); });
 
@@ -1652,6 +1918,7 @@
   renderCapturedToBars();
   showIdleIntro();
   setGameUiState();
+  renderBoardMarkup();
 
   window.addEventListener("resize", () => {
     board.resize();
