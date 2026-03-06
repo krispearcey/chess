@@ -122,10 +122,6 @@
     .mMoveToken.move{ margin-right:10px; }
     .mMoveToken.last{
       font-weight:700;
-      background:rgba(0,0,0,.26);
-      border-radius:4px;
-      padding:2px 6px;
-      margin-right:4px;
     }
 
     .topBarCard, .bottomBarCard{
@@ -157,7 +153,7 @@
     }
 
     .avatar{
-      width:40px; height:40px;
+      width:34px; height:34px;
       border-radius:var(--radius);
       background:var(--panel2);
       border:none;
@@ -310,7 +306,7 @@
     .endHead,
     .boardModalHead{
       padding:12px 12px;
-      border-bottom:none;
+      border-bottom:1px solid var(--line);
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -580,13 +576,6 @@
       text-align:left;
     }
     .moveSan.last{
-      display:inline-block;
-      width:auto;
-      justify-self:start;
-      background:rgba(0,0,0,.26);
-      border:none;
-      border-radius:4px;
-      padding:2px 6px;
       font-weight:700;
     }
 
@@ -889,7 +878,7 @@
         <button class="btn green wide" id="newGameBtn">New Game</button>
         <button class="btn danger wide" id="resignBtn">Resign</button>
         <button class="btn square" id="flipBtn" aria-label="Flip board" title="Flip board">
-          <i class="fa-solid fa-up-down"></i>
+          <i class="fa-solid fa-retweet"></i>
         </button>
         <button class="btn square" id="infoBtn" aria-label="Info" title="Info">
           <i class="fa-solid fa-info"></i>
@@ -907,7 +896,7 @@
       <div class="sheetGrab" id="sheetClose"><div class="pill"></div></div>
       <div class="sheetBtns">
         <button class="btn green" id="mNewGameBtn">New Game</button>
-        <button class="btn" id="mFlipBtn" aria-label="Flip board" title="Flip board"><i class="fa-solid fa-up-down"></i></button>
+        <button class="btn" id="mFlipBtn" aria-label="Flip board" title="Flip board"><i class="fa-solid fa-retweet"></i></button>
         <button class="btn" id="mInfoBtn" aria-label="Info" title="Info"><i class="fa-solid fa-info"></i></button>
         <button class="btn danger" id="mResignBtn">Resign</button>
       </div>
