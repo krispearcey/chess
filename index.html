@@ -1345,6 +1345,11 @@
   let engineReady = false;
   let engineThinking = false;
 
+  /* New flag:
+     true  => next snap end should update board with no animation
+     false => normal behavior */
+  let suppressNextSnapAnimation = false;
+
   sf.onerror = (e) => {
     console.error("Stockfish worker error:", e);
     transitionToBubble("Engine error.");
@@ -1380,6 +1385,8 @@
 
           const mv = game.move({ from, to, promotion: promo });
           if (mv) {
+            /* Keep animation for bot moves */
+            suppressNextSnapAnimation = false;
             board.position(game.fen(), true);
             renderMoves();
             renderCapturedToBars();
@@ -1418,6 +1425,7 @@
 
   function resetToMain({ skipIntro=false } = {}){
     game.reset();
+    suppressNextSnapAnimation = false;
     board.start(true);
     clearMoveDots();
     engineThinking = false;
@@ -1446,6 +1454,7 @@
     engineColor = (asColor === "w") ? "b" : "w";
 
     game.reset();
+    suppressNextSnapAnimation = false;
     board.start(true);
     clearMoveDots();
     engineThinking = false;
@@ -1547,7 +1556,10 @@
         }
       }
 
-      board.position(game.fen(), true);
+      /* Remove animation for user moves */
+      suppressNextSnapAnimation = true;
+      board.position(game.fen(), false);
+
       renderMoves();
       renderCapturedToBars();
 
@@ -1560,7 +1572,14 @@
       return;
     },
 
-    onSnapEnd: () => board.position(game.fen())
+    onSnapEnd: () => {
+      if (suppressNextSnapAnimation){
+        suppressNextSnapAnimation = false;
+        board.position(game.fen(), false);
+      } else {
+        board.position(game.fen());
+      }
+    }
   });
 
   function openNewGame(){
