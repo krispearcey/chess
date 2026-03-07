@@ -802,22 +802,33 @@
         padding-right:2px;
       }
 
+      /* Make overlays use the full mobile viewport so modals don't get cut off */
       .boardModalOverlay,
       .endOverlay{
+        position:fixed;
+        inset:0;
+        border-radius:0;
         align-items:center;
         justify-content:center;
         padding:12px;
         padding-top:max(12px, env(safe-area-inset-top));
+        padding-right:max(12px, env(safe-area-inset-right));
         padding-bottom:max(12px, env(safe-area-inset-bottom));
+        padding-left:max(12px, env(safe-area-inset-left));
       }
 
       .boardModal,
       .endCard{
-        width:min(420px, 100%);
+        width:min(520px, calc(100vw - 24px));
+        max-width:100%;
       }
 
       .boardModal{
         max-height:calc(100dvh - max(24px, env(safe-area-inset-top) + env(safe-area-inset-bottom) + 24px));
+      }
+
+      .boardModalBody{
+        -webkit-overflow-scrolling:touch;
       }
     }
   </style>
@@ -1006,7 +1017,7 @@
   const CHAT_TOTAL_MS = 10350;
   const INTRO_HEY_MS  = 5000;
   const GAP_AFTER_FADE_MS = 120;
-  const IDLE_TAUNT_MS = 15000;
+  const IDLE_TAUNT_MS = 30000;
 
   const idleTauntLines = [
     "Are you calculating, or did you just forget whose turn it is?",
@@ -1141,7 +1152,6 @@
   let idleHeyTimer = null;
   let chatLockedUntil = 0;
   let playerIdleTimer = null;
-  let idleTauntUsedThisTurn = false;
 
   let letsPlayActive = false;
   let userHasMoved = false;
@@ -1161,49 +1171,36 @@
     }
   }
 
+  function isPlayerIdleTauntEligible(){
+    if (!gameStarted) return false;
+    if (game.game_over()) return false;
+    if (engineThinking) return false;
+    if (game.turn() !== playerColor) return false;
+    return true;
+  }
+
   function schedulePlayerIdleTaunt(){
     clearPlayerIdleTimer();
 
-    if (!gameStarted) return;
-    if (game.game_over()) return;
-    if (engineThinking) return;
-    if (game.turn() !== playerColor) return;
-    if (idleTauntUsedThisTurn) return;
+    if (!isPlayerIdleTauntEligible()) return;
+
+    const waitUntil = Math.max(chatLockedUntil, nowMs()) + IDLE_TAUNT_MS;
+    const delay = Math.max(0, waitUntil - nowMs());
 
     playerIdleTimer = setTimeout(() => {
       playerIdleTimer = null;
 
-      if (!gameStarted) return;
-      if (game.game_over()) return;
-      if (engineThinking) return;
-      if (game.turn() !== playerColor) return;
-      if (idleTauntUsedThisTurn) return;
+      if (!isPlayerIdleTauntEligible()) return;
 
-      idleTauntUsedThisTurn = true;
+      showBubbleTimed(pick(idleTauntLines));
 
-      if (canSpeakNow()){
-        showBubbleTimed(pick(idleTauntLines));
-      } else {
-        const delay = Math.max(120, chatLockedUntil - nowMs() + 50);
-        playerIdleTimer = setTimeout(() => {
-          playerIdleTimer = null;
-
-          if (!gameStarted) return;
-          if (game.game_over()) return;
-          if (engineThinking) return;
-          if (game.turn() !== playerColor) return;
-          if (!idleTauntUsedThisTurn) return;
-
-          if (canSpeakNow()){
-            showBubbleTimed(pick(idleTauntLines));
-          }
-        }, delay);
+      if (isPlayerIdleTauntEligible()){
+        schedulePlayerIdleTaunt();
       }
-    }, IDLE_TAUNT_MS);
+    }, delay);
   }
 
   function resetIdleTauntForPlayerTurn(){
-    idleTauntUsedThisTurn = false;
     schedulePlayerIdleTaunt();
   }
 
@@ -1326,7 +1323,6 @@
     gameStarted = false;
     engineThinking = false;
     clearPlayerIdleTimer();
-    idleTauntUsedThisTurn = false;
 
     newGameBtn.classList.add("green");
     newGameBtn.disabled = false;
@@ -1627,7 +1623,6 @@
     engineThinking = false;
     gameStarted = false;
     clearPlayerIdleTimer();
-    idleTauntUsedThisTurn = false;
 
     closeEndOverlay();
     closeBoardOverlay(sideOverlay);
@@ -1658,7 +1653,6 @@
     engineThinking = false;
     gameStarted = true;
     clearPlayerIdleTimer();
-    idleTauntUsedThisTurn = false;
 
     closeEndOverlay();
     closeBoardOverlay(sideOverlay);
@@ -1753,7 +1747,6 @@
       if (mv === null) return "snapback";
 
       clearPlayerIdleTimer();
-      idleTauntUsedThisTurn = false;
 
       if (!userHasMoved){
         userHasMoved = true;
@@ -1834,7 +1827,6 @@
     showBubbleTimed("You resigned.");
 
     clearPlayerIdleTimer();
-    idleTauntUsedThisTurn = false;
 
     resetToMain({ skipIntro: true });
     setGameUiState();
